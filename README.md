@@ -9,6 +9,7 @@ Através de pesquisa interna, o ISMART identificou que seus alunos universitári
 
 - **Solidão no ambiente universitário:** Dificuldade de integração em campi grandes e desconhecidos
 - **Isolamento geográfico:** Alunos distribuídos em 84 universidades diferentes, principalmente no Sudeste
+- **Falta de rede de apoio:** Dificuldade em encontrar outros bolsistas ISMART para compartilhar experiências
 - **Insegurança acadêmica:** Ausência de mentores ou veteranos que entendam os desafios específicos do programa
 - **Perda de oportunidades:** Networking e compartilhamento de vagas/oportunidades limitados
 
@@ -179,3 +180,4 @@ Criar uma comunidade digital ativa e engajada que reduza o sentimento de solidã
 | **Alunos Universitários** | Usuários finais | Conexão, apoio mútuo, networking, oportunidades |
 | **Coordenadores ISMART** | Gestores da plataforma | Ferramentas de moderação, analytics, controle |
 | **Equipe de Desenvolvimento** | Executores | Entregar solução funcional no prazo |
+
