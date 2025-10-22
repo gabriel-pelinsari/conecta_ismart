@@ -1,7 +1,6 @@
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from app.config.settings import settings
 import os
 from dotenv import load_dotenv
 
@@ -15,10 +14,10 @@ class EmailService:
     def __init__(self):
         self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.sender_email = os.getenv("SMTP_USER")
-        self.sender_password = os.getenv("SMTP_PASSWORD")
+        self.sender_email = os.getenv("SMTP_USER", "")
+        self.sender_password = os.getenv("SMTP_PASSWORD", "")
         self.sender_name = os.getenv("EMAIL_FROM_NAME", "ISMART Conecta")
-        self.from_email = os.getenv("EMAIL_FROM")
+        self.from_email = os.getenv("EMAIL_FROM", "noreply@ismartconecta.com")
     
     def send_verification_email(self, recipient_email: str, verification_code: str) -> bool:
         """
@@ -32,6 +31,11 @@ class EmailService:
             True se enviado com sucesso, False caso contrário
         """
         try:
+            # Validação de configuração
+            if not self.sender_email or not self.sender_password:
+                print("Erro: SMTP_USER ou SMTP_PASSWORD não configurados no .env")
+                return False
+            
             # Cria a mensagem
             message = MIMEMultipart("alternative")
             message["Subject"] = "Seu Código de Verificação - ISMART Conecta"
@@ -67,16 +71,18 @@ ISMART Conecta
                 server.login(self.sender_email, self.sender_password)
                 server.sendmail(self.from_email, recipient_email, message.as_string())
             
+            print(f"✅ Email enviado para {recipient_email}")
             return True
         
-        except smtplib.SMTPAuthenticationError:
-            print(f"Erro: Email ou senha do Gmail incorretos")
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"❌ Erro de autenticação Gmail: Email ou App Password incorretos")
+            print(f"   Detalhes: {str(e)}")
             return False
         except smtplib.SMTPException as e:
-            print(f"Erro SMTP: {str(e)}")
+            print(f"❌ Erro SMTP: {str(e)}")
             return False
         except Exception as e:
-            print(f"Erro ao enviar email: {str(e)}")
+            print(f"❌ Erro ao enviar email: {str(e)}")
             return False
     
     def _get_verification_email_template(self, verification_code: str) -> str:
@@ -88,14 +94,14 @@ ISMART Conecta
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                     
-                    {/* Header */}
+                    <!-- Header -->
                     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                                 color: white; padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
                         <h1 style="margin: 0; font-size: 28px;">🚀 ISMART Conecta</h1>
                         <p style="margin: 8px 0 0 0; opacity: 0.9;">Bem-vindo à comunidade!</p>
                     </div>
                     
-                    {/* Content */}
+                    <!-- Content -->
                     <div style="background: #f8f9ff; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
                         
                         <h2 style="color: #333; margin-top: 0;">Seu Código de Verificação</h2>
@@ -104,7 +110,7 @@ ISMART Conecta
                         
                         <p>Você foi convidado a se juntar ao <strong>ISMART Conecta</strong>. Para completar seu registro, use o código abaixo:</p>
                         
-                        {/* Code Box */}
+                        <!-- Code Box -->
                         <div style="background: white; border: 2px dashed #667eea; padding: 20px; 
                                     border-radius: 8px; text-align: center; margin: 20px 0;">
                             <p style="margin: 0; color: #999; font-size: 12px; text-transform: uppercase;">Código de Verificação</p>

@@ -5,7 +5,7 @@ import './UploadEmailsModal.css';
 export default function UploadEmailsModal() {
   // Estados do modal
   const [isOpen, setIsOpen] = useState(false);
-  
+
   // Estados do upload
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -38,21 +38,21 @@ export default function UploadEmailsModal() {
    */
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    
+
     // Validação: apenas CSV
     if (selectedFile && !selectedFile.name.endsWith('.csv')) {
       setError('Por favor, selecione um arquivo CSV');
       setFile(null);
       return;
     }
-    
+
     // Validação: tamanho máximo 5MB
     if (selectedFile && selectedFile.size > 5 * 1024 * 1024) {
       setError('Arquivo muito grande. Máximo 5MB');
       setFile(null);
       return;
     }
-    
+
     setError(null);
     setFile(selectedFile);
   };
@@ -62,7 +62,7 @@ export default function UploadEmailsModal() {
    */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!file) {
       setError('Selecione um arquivo CSV');
       return;
@@ -97,8 +97,8 @@ export default function UploadEmailsModal() {
             {/* Header */}
             <div className="modal-header">
               <h2>📤 Upload de Emails</h2>
-              <button 
-                className="modal-close-btn" 
+              <button
+                className="modal-close-btn"
                 onClick={closeModal}
                 aria-label="Fechar modal"
               >
@@ -152,56 +152,61 @@ usuario2@example.com</pre>
                   </button>
                 </form>
               ) : (
-                // Resultado do upload
-                <div className="response-container">
-                  <div className="alert alert-success">
-                    ✅ {response.message}
-                  </div>
-                  
-                  <div className="stats">
-                    <div className="stat-item success">
-                      <span className="stat-label">Sucesso</span>
-                      <span className="stat-value">{response.success_count}</span>
+                response && (
+                  <div className="response-container">
+                    <div className="alert alert-success">
+                      ✅ {response.message}
                     </div>
-                    <div className="stat-item error">
-                      <span className="stat-label">Erros</span>
-                      <span className="stat-value">{response.error_count}</span>
-                    </div>
-                  </div>
 
-                  {/* Lista de erros */}
-                  {response.errors && response.errors.length > 0 && (
-                    <div className="errors-list">
-                      <h4>Detalhes dos erros:</h4>
-                      <ul>
-                        {response.errors.map((err, index) => (
-                          <li key={index}>
-                            <strong>{err.email}</strong>: {err.reason}
-                          </li>
-                        ))}
-                      </ul>
+                    <div className="email-sent-notice">
+                      📧 Todos os emails foram enviados com o código de verificação!
                     </div>
-                  )}
 
-                  {/* Botões de ação */}
-                  <div className="response-actions">
-                    <button 
-                      className="btn-primary"
-                      onClick={() => {
-                        resetForm();
-                        closeModal();
-                      }}
-                    >
-                      Fechar
-                    </button>
-                    <button 
-                      className="btn-secondary"
-                      onClick={() => resetForm()}
-                    >
-                      Fazer outro upload
-                    </button>
+                    <div className="stats">
+                      <div className="stat-item success">
+                        <span className="stat-label">Enviados</span>
+                        <span className="stat-value">{response.success_count}</span>
+                      </div>
+                      <div className="stat-item error">
+                        <span className="stat-label">Erros</span>
+                        <span className="stat-value">{response.error_count}</span>
+                      </div>
+                    </div>
+
+                    {/* Lista de erros */}
+                    {response.errors && response.errors.length > 0 && (
+                      <div className="errors-list">
+                        <h4>Detalhes dos erros:</h4>
+                        <ul>
+                          {response.errors.map((err, index) => (
+                            <li key={index}>
+                              <strong>{err.email}</strong>: {err.reason}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Botões de ação */}
+                    <div className="response-actions">
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          resetForm();
+                          closeModal();
+                        }}
+                      >
+                        Fechar
+                      </button>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => resetForm()}
+                      >
+                        Fazer outro upload
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )
               )}
             </div>
           </div>
