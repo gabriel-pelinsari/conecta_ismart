@@ -1,5 +1,6 @@
 from typing import Optional, List
 from pydantic import BaseModel, AnyUrl, Field
+from app.schemas.interest import InterestOut
 
 # ---- Stats & Badges (MVP placeholders) ----
 class ProfileStats(BaseModel):
@@ -39,12 +40,11 @@ class ProfilePublicOut(BaseModel):
     semester: Optional[str]
     bio: Optional[str]
     photo_url: Optional[str]
-    # socials são OMITIDAS aqui por padrão
+    interests: List[InterestOut] = []
     stats: ProfileStats = ProfileStats()
     badges: List[ProfileBadge] = []
 
 class ProfilePrivateOut(ProfilePublicOut):
-    # inclui socials para dono/amigo
     linkedin: Optional[str]
     instagram: Optional[str]
     whatsapp: Optional[str]

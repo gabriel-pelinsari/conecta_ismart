@@ -83,6 +83,10 @@ export default function NavBar({ role, logout }) {
           Início
         </StyledLink>
 
+        <StyledLink to="/profile" $active={pathname === "/profile"}>
+          Perfil
+        </StyledLink>
+
         {role === "admin" && (
           <StyledLink to="/admin" $active={pathname === "/admin"}>
             Admin

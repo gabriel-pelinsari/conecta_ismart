@@ -8,12 +8,24 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.core.config import settings
 from app.core.email_utils import send_verification_email
 import random, string, csv, io
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import Form  # <-- adicionar
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # --- Função auxiliar ---
 def generate_verification_code():
     return ''.join(random.choices(string.digits, k=6))
+
+# Criar form customizado
+class OAuth2EmailPasswordRequestForm:
+    def __init__(
+        self,
+        email: str = Form(...),  # <-- "email" em vez de "username"
+        password: str = Form(...)
+    ):
+        self.username = email  # compatibilidade interna
+        self.password = password
 
 # --- Upload CSV (admin) ---
 @router.post("/upload-csv")
@@ -85,13 +97,16 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.refresh(user)
     return user
 
-# --- Login normal ---
+# Atualizar endpoint
 @router.post("/token", response_model=Token)
-def login(email: str, password: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == email).first()
+def login(
+    form_data: OAuth2EmailPasswordRequestForm = Depends(),  # <-- usar o customizado
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not user.hashed_password:
         raise HTTPException(status_code=400, detail="Usuário não encontrado ou sem senha definida")
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Senha incorreta")
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Conta não verificada")

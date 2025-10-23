@@ -6,8 +6,6 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import { Field, Label, Input } from "../components/ui/TextField";
 
-/* === Regras iguais ao Register === */
-const ALLOWED = /^[A-Za-z0-9@#$%^&*_\-+=.!?]+$/; // sem < > { } [ ] ( ) " ' ` / \
 const SANITIZE = /[^A-Za-z0-9@#$%^&*_\-+=.!?]/g;
 
 const Wrap = styled.main`
@@ -15,6 +13,13 @@ const Wrap = styled.main`
   display: grid;
   place-items: center;
   padding: 24px;
+  background: ${({ theme }) => theme.colors.bg};
+`;
+
+const Container = styled.div`
+  width: 100%;
+  max-width: ${({ theme }) => theme.sizes.containerSmall};
+  margin: 0 auto;
 `;
 
 const Header = styled.header`
@@ -27,6 +32,7 @@ const Title = styled.h1`
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  color: ${({ theme }) => theme.colors.text};
 `;
 
 const Subtitle = styled.p`
@@ -46,7 +52,16 @@ const HintRow = styled.div`
   justify-content: space-between;
   font-size: 13px;
   color: ${({ theme }) => theme.colors.textMuted};
-  a { text-decoration: underline; text-underline-offset: 2px; }
+  
+  a {
+    color: ${({ theme }) => theme.colors.primary};
+    text-decoration: none;
+    
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+  }
 `;
 
 const ErrorBox = styled.div`
@@ -56,6 +71,27 @@ const ErrorBox = styled.div`
   border-radius: ${({ theme }) => theme.radii.sm};
   color: ${({ theme }) => theme.colors.danger};
   background: rgba(255, 59, 48, 0.08);
+  font-size: 13px;
+`;
+
+const SubmitButton = styled(Button)`
+  padding: 14px 24px;
+  background: ${({ theme }) => theme.colors.primary};
+  color: white;
+  border: none;
+  font-weight: 600;
+  font-size: 15px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  transition: opacity 0.2s ease;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 `;
 
 export default function Login({ setAuth }) {
@@ -76,30 +112,61 @@ export default function Login({ setAuth }) {
     }
   }
 
+  function extractErrorMessage(err) {
+    // Pega a mensagem de erro do backend
+    if (err?.response?.data?.detail) {
+      const detail = err.response.data.detail;
+      
+      // Se for um array de erros de validação do Pydantic
+      if (Array.isArray(detail)) {
+        return detail.map(e => e.msg).join(". ");
+      }
+      
+      // Se for uma string
+      if (typeof detail === "string") {
+        return detail;
+      }
+    }
+    
+    return "Falha no login. Verifique suas credenciais.";
+  }
+
   async function handleLogin(e) {
     e.preventDefault();
     setError("");
     setSubmitting(true);
+    
     try {
-      const res = await api.post("/auth/token", null, {
-        params: { email, password },
+      // ✅ CORRIGIDO: FastAPI espera form-data, não params
+      const formData = new FormData();
+      formData.append("email", email);
+      formData.append("password", password);
+
+      const res = await api.post("/auth/token", formData, {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
       });
+
       const token = res.data.access_token;
 
-      // Regra simples para admin padrão (ajuste depois para vir do backend)
-      const role =
-        email === "admin@ismart.com" && password === "admin"
-          ? "admin"
-          : "student";
+      // ✅ CORRIGIDO: Buscar role do próprio perfil depois
+      setAuth(token, "student"); // Por padrão, depois pegamos do backend
+      
+      // Buscar se é admin
+      try {
+        const profileRes = await api.get("/profiles/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        // Aqui você pode adicionar lógica para detectar admin
+        // Por enquanto, todos são students
+      } catch (profileErr) {
+        console.log("Erro ao buscar perfil:", profileErr);
+      }
 
-      setAuth(token, role);
-      navigate("/"); // redireciona sem recarregar
+      navigate("/home");
     } catch (err) {
-      const apiMsg =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        "Falha no login. Verifique suas credenciais.";
-      setError(apiMsg);
+      setError(extractErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -107,52 +174,54 @@ export default function Login({ setAuth }) {
 
   return (
     <Wrap>
-      <Card as="section" aria-label="Acesso à plataforma ISMART Conecta">
-        <Header>
-          <Title>Entrar</Title>
-          <Subtitle>Acesse com seu e-mail e senha</Subtitle>
-        </Header>
+      <Container>
+        <Card as="section" aria-label="Acesso à plataforma ISMART Conecta">
+          <Header>
+            <Title>Entrar</Title>
+            <Subtitle>Acesse com seu e-mail e senha</Subtitle>
+          </Header>
 
-        <Form onSubmit={handleLogin} noValidate>
-          <Field>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="seuemail@exemplo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              required
-              aria-invalid={!!error}
-            />
-          </Field>
+          <Form onSubmit={handleLogin} noValidate>
+            <Field>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seuemail@exemplo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+                aria-invalid={!!error}
+              />
+            </Field>
 
-          <Field>
-            <Label htmlFor="password">Senha</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={handlePasswordChange}
-              autoComplete="current-password"
-              required
-            />
-          </Field>
+            <Field>
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={handlePasswordChange}
+                autoComplete="current-password"
+                required
+              />
+            </Field>
 
-          <Button type="submit" disabled={submitting || !email || !password}>
-            {submitting ? "Entrando..." : "Entrar"}
-          </Button>
+            <SubmitButton type="submit" disabled={submitting || !email || !password}>
+              {submitting ? "Entrando..." : "Entrar"}
+            </SubmitButton>
 
-          <HintRow>
-            <Link to="/register">Criar conta</Link>
-            <span>Precisa de ajuda?</span>
-          </HintRow>
+            <HintRow>
+              <Link to="/register">Criar conta</Link>
+              <span>Precisa de ajuda?</span>
+            </HintRow>
 
-          {error && <ErrorBox role="alert">{error}</ErrorBox>}
-        </Form>
-      </Card>
+            {error && <ErrorBox role="alert">{error}</ErrorBox>}
+          </Form>
+        </Card>
+      </Container>
     </Wrap>
   );
 }

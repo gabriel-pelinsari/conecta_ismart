@@ -6,9 +6,8 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import { Field, Label, Input } from "../components/ui/TextField";
 
-/* === Regras de senha (ajuste aqui, se quiser) === */
 const MIN_LEN = 8;
-const ALLOWED = /^[A-Za-z0-9@#$%^&*_\-+=.!?]+$/; // sem < > { } [ ] ( ) " ' ` / \
+const ALLOWED = /^[A-Za-z0-9@#$%^&*_\-+=.!?]+$/;
 const SANITIZE = /[^A-Za-z0-9@#$%^&*_\-+=.!?]/g;
 
 const Wrap = styled.main`
@@ -16,6 +15,13 @@ const Wrap = styled.main`
   display: grid;
   place-items: center;
   padding: 24px;
+  background: ${({ theme }) => theme.colors.bg};
+`;
+
+const Container = styled.div`
+  width: 100%;
+  max-width: ${({ theme }) => theme.sizes.containerSmall};
+  margin: 0 auto;
 `;
 
 const Header = styled.header`
@@ -28,6 +34,7 @@ const Title = styled.h1`
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  color: ${({ theme }) => theme.colors.text};
 `;
 
 const Subtitle = styled.p`
@@ -47,7 +54,16 @@ const HintRow = styled.div`
   justify-content: space-between;
   font-size: 13px;
   color: ${({ theme }) => theme.colors.textMuted};
-  a { text-decoration: underline; text-underline-offset: 2px; }
+  
+  a {
+    color: ${({ theme }) => theme.colors.primary};
+    text-decoration: none;
+    
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+  }
 `;
 
 const ErrorBox = styled.div`
@@ -57,6 +73,7 @@ const ErrorBox = styled.div`
   border-radius: ${({ theme }) => theme.radii.sm};
   color: ${({ theme }) => theme.colors.danger};
   background: rgba(255, 59, 48, 0.08);
+  font-size: 13px;
 `;
 
 const SuccessBox = styled.div`
@@ -66,6 +83,7 @@ const SuccessBox = styled.div`
   border-radius: ${({ theme }) => theme.radii.sm};
   color: ${({ theme }) => theme.colors.success};
   background: rgba(52, 199, 89, 0.08);
+  font-size: 13px;
 `;
 
 const Checklist = styled.ul`
@@ -74,8 +92,34 @@ const Checklist = styled.ul`
   margin: 4px 0 0 0;
   font-size: 12px;
   color: ${({ theme }) => theme.colors.textMuted};
-  li { margin-top: 2px; }
-  .ok { color: ${({ theme }) => theme.colors.success}; }
+  
+  li {
+    margin-top: 2px;
+  }
+  
+  .ok {
+    color: ${({ theme }) => theme.colors.success};
+  }
+`;
+
+const SubmitButton = styled(Button)`
+  padding: 14px 24px;
+  background: ${({ theme }) => theme.colors.primary};
+  color: white;
+  border: none;
+  font-weight: 600;
+  font-size: 15px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  transition: opacity 0.2s ease;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 `;
 
 export default function Register() {
@@ -104,6 +148,24 @@ export default function Register() {
     }
   }
 
+  function extractErrorMessage(err) {
+    if (err?.response?.data?.detail) {
+      const detail = err.response.data.detail;
+      
+      // Se for um array de erros de validação do Pydantic
+      if (Array.isArray(detail)) {
+        return detail.map(e => e.msg).join(". ");
+      }
+      
+      // Se for uma string
+      if (typeof detail === "string") {
+        return detail;
+      }
+    }
+    
+    return "Erro ao cadastrar. Verifique os dados e tente novamente.";
+  }
+
   function validateBeforeSubmit() {
     if (!email) return "Informe um email válido.";
     if (!verificationCode || verificationCode.trim().length !== 6)
@@ -111,8 +173,7 @@ export default function Register() {
     if (!hasLen) return `A senha deve ter pelo menos ${MIN_LEN} caracteres.`;
     if (!hasUpper) return "A senha deve conter ao menos 1 letra maiúscula.";
     if (!hasDigit) return "A senha deve conter ao menos 1 número.";
-    if (!allowedChars)
-      return "A senha contém caracteres não permitidos.";
+    if (!allowedChars) return "A senha contém caracteres não permitidos.";
     return "";
   }
 
@@ -134,20 +195,15 @@ export default function Register() {
         password,
         verification_code: verificationCode.trim(),
       });
+      
       setOk("Cadastro concluído! Redirecionando para o login...");
-      // Limpa campos rapidamente (opcional)
       setEmail("");
       setVerificationCode("");
       setPassword("");
 
-      // Redireciona após pequeno delay para UX suave
-      setTimeout(() => navigate("/login"), 900);
+      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      const apiMsg =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        "Erro ao cadastrar. Verifique os dados e tente novamente.";
-      setError(apiMsg);
+      setError(extractErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -155,73 +211,77 @@ export default function Register() {
 
   return (
     <Wrap>
-      <Card as="section" aria-label="Criar conta no ISMART Conecta">
-        <Header>
-          <Title>Criar conta</Title>
-          <Subtitle>Use o e-mail pré-cadastrado e o código enviado</Subtitle>
-        </Header>
+      <Container>
+        <Card as="section" aria-label="Criar conta no ISMART Conecta">
+          <Header>
+            <Title>Criar conta</Title>
+            <Subtitle>Use o e-mail pré-cadastrado e o código enviado</Subtitle>
+          </Header>
 
-        <Form onSubmit={handleRegister} noValidate>
-          <Field>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="seuemail@exemplo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              required
-              aria-invalid={!!error}
-            />
-          </Field>
+          <Form onSubmit={handleRegister} noValidate>
+            <Field>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seuemail@exemplo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+                aria-invalid={!!error}
+              />
+            </Field>
 
-          <Field>
-            <Label htmlFor="code">Código de verificação</Label>
-            <Input
-              id="code"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="000000"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              required
-            />
-          </Field>
+            <Field>
+              <Label htmlFor="code">Código de verificação</Label>
+              <Input
+                id="code"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="000000"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                required
+              />
+            </Field>
 
-          <Field>
-            <Label htmlFor="password">Senha</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={handlePasswordChange}
-              autoComplete="new-password"
-              required
-            />
-            <Checklist aria-live="polite">
-              <li className={hasLen ? "ok" : ""}>• Mínimo de {MIN_LEN} caracteres</li>
-              <li className={hasUpper ? "ok" : ""}>• Ao menos 1 letra maiúscula</li>
-              <li className={hasDigit ? "ok" : ""}>• Ao menos 1 número</li>
-              <li className={allowedChars ? "ok" : ""}>• Sem caracteres perigosos (&lt; &gt; {`{ } [ ] ( ) " ' \` / \\`})</li>
-            </Checklist>
-          </Field>
+            <Field>
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={handlePasswordChange}
+                autoComplete="new-password"
+                required
+              />
+              <Checklist aria-live="polite">
+                <li className={hasLen ? "ok" : ""}>• Mínimo de {MIN_LEN} caracteres</li>
+                <li className={hasUpper ? "ok" : ""}>• Ao menos 1 letra maiúscula</li>
+                <li className={hasDigit ? "ok" : ""}>• Ao menos 1 número</li>
+                <li className={allowedChars ? "ok" : ""}>
+                  • Sem caracteres perigosos (&lt; &gt; {`{ } [ ] ( ) " ' \` / \\`})
+                </li>
+              </Checklist>
+            </Field>
 
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Criando..." : "Criar conta"}
-          </Button>
+            <SubmitButton type="submit" disabled={submitting}>
+              {submitting ? "Criando..." : "Criar conta"}
+            </SubmitButton>
 
-          <HintRow>
-            <Link to="/login">Já tenho conta</Link>
-            <span>Sem o código? Fale com o admin.</span>
-          </HintRow>
+            <HintRow>
+              <Link to="/login">Já tenho conta</Link>
+              <span>Sem o código? Fale com o admin.</span>
+            </HintRow>
 
-          {error && <ErrorBox role="alert">{error}</ErrorBox>}
-          {ok && <SuccessBox role="status">{ok}</SuccessBox>}
-        </Form>
-      </Card>
+            {error && <ErrorBox role="alert">{error}</ErrorBox>}
+            {ok && <SuccessBox role="status">{ok}</SuccessBox>}
+          </Form>
+        </Card>
+      </Container>
     </Wrap>
   );
 }

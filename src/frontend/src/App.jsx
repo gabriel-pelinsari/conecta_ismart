@@ -5,6 +5,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
+import Profile from "./pages/Profile";
+import ProfileEdit from "./pages/ProfileEdit";
 
 /* === Protected Routes === */
 function ProtectedRoute({ token, children }) {
@@ -23,7 +25,6 @@ export default function App() {
   const [token, setToken] = useState(null);
   const [role, setRole] = useState(null);
 
-  // 🔹 Persiste o login
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     const savedRole = localStorage.getItem("role");
@@ -31,7 +32,6 @@ export default function App() {
     if (savedRole) setRole(savedRole);
   }, []);
 
-  // 🔹 Função central de autenticação
   function setAuth(t, r) {
     setToken(t);
     setRole(r);
@@ -39,7 +39,6 @@ export default function App() {
     localStorage.setItem("role", r);
   }
 
-  // 🔹 Logout global
   function logout() {
     setToken(null);
     setRole(null);
@@ -61,6 +60,34 @@ export default function App() {
           element={
             <ProtectedRoute token={token}>
               <Home />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ADICIONAR ESTAS ROTAS */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute token={token}>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile/:userId"
+          element={
+            <ProtectedRoute token={token}>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile/edit"
+          element={
+            <ProtectedRoute token={token}>
+              <ProfileEdit />
             </ProtectedRoute>
           }
         />

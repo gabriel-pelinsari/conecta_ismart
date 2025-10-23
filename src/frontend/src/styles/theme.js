@@ -1,7 +1,7 @@
 const theme = {
   // Altere só isso pra rebrand
   colors: {
-    bg: "#0B0B0C",          // fundo app (quase preto — “graphite”)
+    bg: "#0B0B0C",          // fundo app (quase preto — "graphite")
     surface: "#111113",     // cartões/contêiner
     text: "#F5F5F7",        // texto principal
     textMuted: "#B5B8BD",   // texto secundário
@@ -25,7 +25,17 @@ const theme = {
     focus: "0 0 0 3px rgba(0,113,227,0.35)",
   },
   sizes: {
-    container: "380px",
+    containerSmall: "380px",      // Para modais e forms pequenos
+    containerMedium: "900px",     // Para páginas de perfil
+    containerLarge: "1200px",     // Para dashboard e listagens
+    containerWidthDesktop: "75%", // Largura em desktop
+    containerWidthMobile: "90%",  // Largura em mobile
+  },
+  breakpoints: {
+    mobile: "480px",
+    tablet: "768px",
+    desktop: "1024px",
+    wide: "1440px",
   }
 };
 

@@ -2,23 +2,25 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, profiles  # 👈 inclui o módulo de perfis
+from app.api import auth, profiles, interests  
 from app.db.session import engine
-from app.models import user, profile  # 👈 garante que ambos os modelos existam
-from app.db.init_admin import create_default_admin
+from app.db.base import Base
+# IMPORTAR TODOS OS MODELOS AQUI
+from app.models.user import User, UserStats
+from app.models.profile import Profile
+from app.models.social import Friendship, Interest, UserInterest
+from app.models.gamification import Badge, UserBadge
 
 # === Criação das tabelas no banco ===
-user.Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 # === Inicialização do app ===
 app = FastAPI(title="ISMART Conecta API", version="1.0.0")
 
-# === Cria admin padrão ===
-create_default_admin()
-
 # === Inclusão de routers ===
 app.include_router(auth.router)
 app.include_router(profiles.router)
+app.include_router(interests.router)  
 
 # === CORS ===
 origins = ["*"]
