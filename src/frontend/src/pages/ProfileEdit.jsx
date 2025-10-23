@@ -455,7 +455,7 @@ export default function ProfileEdit() {
               Cancelar
             </CancelButton>
             <SaveButton type="submit" disabled={updating}>
-              {updating ? "Salvando..." : "💾 Salvar Alterações"}
+              {updating ? "Salvando..." : "Salvar Alterações"}
             </SaveButton>
           </ButtonGroup>
         </FormCard>

@@ -24,11 +24,11 @@ const Container = styled.div`
 
 const Header = styled.header`
   text-align: center;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 `;
 
 const Title = styled.h1`
-  margin: 0 0 6px 0;
+  margin: 0 0 8px 0;
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -43,8 +43,8 @@ const Subtitle = styled.p`
 
 const Form = styled.form`
   display: grid;
-  gap: 14px;
-  margin-top: 12px;
+  gap: 16px;
+  margin-top: 24px;
 `;
 
 const HintRow = styled.div`
@@ -52,11 +52,12 @@ const HintRow = styled.div`
   justify-content: space-between;
   font-size: 13px;
   color: ${({ theme }) => theme.colors.textMuted};
-  
+  margin-top: 12px;
+
   a {
     color: ${({ theme }) => theme.colors.primary};
     text-decoration: none;
-    
+
     &:hover {
       text-decoration: underline;
       text-underline-offset: 2px;
@@ -65,24 +66,23 @@ const HintRow = styled.div`
 `;
 
 const ErrorBox = styled.div`
-  margin-top: 8px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid ${({ theme }) => theme.colors.outline};
   border-radius: ${({ theme }) => theme.radii.sm};
   color: ${({ theme }) => theme.colors.danger};
   background: rgba(255, 59, 48, 0.08);
   font-size: 13px;
+  font-weight: 500;
 `;
 
 const SubmitButton = styled(Button)`
-  padding: 14px 24px;
+  padding: 14px 16px;
   background: ${({ theme }) => theme.colors.primary};
   color: white;
   border: none;
   font-weight: 600;
   font-size: 15px;
-  border-radius: ${({ theme }) => theme.radii.sm};
-  transition: opacity 0.2s ease;
+  margin-top: 8px;
 
   &:hover:not(:disabled) {
     opacity: 0.9;
@@ -93,6 +93,17 @@ const SubmitButton = styled(Button)`
     cursor: not-allowed;
   }
 `;
+
+// ✅ FUNÇÃO PARA DECODIFICAR JWT
+function decodeJWT(token) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload;
+  } catch (e) {
+    console.error("Erro ao decodificar JWT:", e);
+    return null;
+  }
+}
 
 export default function Login({ setAuth }) {
   const navigate = useNavigate();
@@ -113,21 +124,18 @@ export default function Login({ setAuth }) {
   }
 
   function extractErrorMessage(err) {
-    // Pega a mensagem de erro do backend
     if (err?.response?.data?.detail) {
       const detail = err.response.data.detail;
-      
-      // Se for um array de erros de validação do Pydantic
+
       if (Array.isArray(detail)) {
-        return detail.map(e => e.msg).join(". ");
+        return detail.map((e) => e.msg).join(". ");
       }
-      
-      // Se for uma string
+
       if (typeof detail === "string") {
         return detail;
       }
     }
-    
+
     return "Falha no login. Verifique suas credenciais.";
   }
 
@@ -135,9 +143,8 @@ export default function Login({ setAuth }) {
     e.preventDefault();
     setError("");
     setSubmitting(true);
-    
+
     try {
-      // ✅ CORRIGIDO: FastAPI espera form-data, não params
       const formData = new FormData();
       formData.append("email", email);
       formData.append("password", password);
@@ -150,20 +157,13 @@ export default function Login({ setAuth }) {
 
       const token = res.data.access_token;
 
-      // ✅ CORRIGIDO: Buscar role do próprio perfil depois
-      setAuth(token, "student"); // Por padrão, depois pegamos do backend
-      
-      // Buscar se é admin
-      try {
-        const profileRes = await api.get("/profiles/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        // Aqui você pode adicionar lógica para detectar admin
-        // Por enquanto, todos são students
-      } catch (profileErr) {
-        console.log("Erro ao buscar perfil:", profileErr);
-      }
+      // ✅ DECODIFICAR TOKEN PARA PEGAR ROLE
+      const payload = decodeJWT(token);
+      const role = payload?.role || "student";
 
+      console.log(`✅ Login bem-sucedido: role=${role}`);
+
+      setAuth(token, role); // ← USA ROLE DO TOKEN
       navigate("/home");
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -209,7 +209,10 @@ export default function Login({ setAuth }) {
               />
             </Field>
 
-            <SubmitButton type="submit" disabled={submitting || !email || !password}>
+            <SubmitButton
+              type="submit"
+              disabled={submitting || !email || !password}
+            >
               {submitting ? "Entrando..." : "Entrar"}
             </SubmitButton>
 

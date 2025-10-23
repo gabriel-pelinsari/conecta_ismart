@@ -1,18 +1,21 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import logging
 
+# === CONFIGURAR LOGGING ===
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# === Imports ===
 from app.api import auth, profiles, interests  
 from app.db.session import engine
-from app.db.base import Base
-# IMPORTAR TODOS OS MODELOS AQUI
-from app.models.user import User, UserStats
-from app.models.profile import Profile
-from app.models.social import Friendship, Interest, UserInterest
-from app.models.gamification import Badge, UserBadge
+from app.models import user, profile
 
 # === Criação das tabelas no banco ===
-Base.metadata.create_all(bind=engine)
+user.Base.metadata.create_all(bind=engine)
 
 # === Inicialização do app ===
 app = FastAPI(title="ISMART Conecta API", version="1.0.0")

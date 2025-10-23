@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     EMAIL_SENDER: str
     EMAIL_APP_PASSWORD: str
 
+    # === ADMIN CONFIG ===
+    ADMIN_VERIFICATION_CODE: str = "ADMIN123456"
+
     @property
     def DATABASE_URL(self):
         return (

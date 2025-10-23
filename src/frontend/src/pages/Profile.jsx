@@ -196,6 +196,17 @@ const TwoColumnGrid = styled.div`
 
 const GridSection = styled(Section)``;
 
+// ✅ FUNÇÃO PARA DECODIFICAR JWT
+function decodeJWT(token) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload;
+  } catch (e) {
+    console.error("Erro ao decodificar JWT:", e);
+    return null;
+  }
+}
+
 export default function Profile() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -206,19 +217,19 @@ export default function Profile() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      // Decodificar user_id do token JWT (simples decodificação)
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        setCurrentUserId(payload.sub); // ou user_id dependendo do backend
-      } catch (e) {
-        console.log("Não foi possível decodificar token");
+      const payload = decodeJWT(token);
+      if (payload) {
+        setCurrentUserId(payload.user_id); // ✅ USA user_id
+        console.log(`🔐 Current user ID: ${payload.user_id}`);
       }
     }
   }, []);
 
   useEffect(() => {
     if (profile && currentUserId) {
-      setIsOwnProfile(profile.user_id === currentUserId);
+      const isOwn = profile.user_id === currentUserId;
+      setIsOwnProfile(isOwn);
+      console.log(`📋 Profile user_id: ${profile.user_id}, Current user_id: ${currentUserId}, isOwn: ${isOwn}`);
     }
   }, [profile, currentUserId]);
 
@@ -336,34 +347,28 @@ export default function Profile() {
           {(profile.linkedin ||
             profile.instagram ||
             (profile.whatsapp && profile.show_whatsapp)) && (
-              <Section>
-                <SectionTitle>Contato</SectionTitle>
-                <SocialLinks>
-                  {profile.linkedin && (
-                    <SocialLink href={profile.linkedin} target="_blank" rel="noopener noreferrer">
-                      🔗 LinkedIn
-                    </SocialLink>
-                  )}
-                  {profile.instagram && (
-                    <SocialText>📸 Instagram: {profile.instagram}</SocialText>
-                  )}
-                  {profile.whatsapp && profile.show_whatsapp && (
-                    <SocialText>📱 WhatsApp: {profile.whatsapp}</SocialText>
-                  )}
-                </SocialLinks>
-              </Section>
-            )}
-
-          {isOwnProfile && (
-            <EditButton onClick={() => navigate("/profile/edit")}>
-              ✏️ Editar Perfil
-            </EditButton>
+            <Section>
+              <SectionTitle>Contato</SectionTitle>
+              <SocialLinks>
+                {profile.linkedin && (
+                  <SocialLink href={profile.linkedin} target="_blank" rel="noopener noreferrer">
+                    🔗 LinkedIn
+                  </SocialLink>
+                )}
+                {profile.instagram && (
+                  <SocialText>📸 Instagram: {profile.instagram}</SocialText>
+                )}
+                {profile.whatsapp && profile.show_whatsapp && (
+                  <SocialText>📱 WhatsApp: {profile.whatsapp}</SocialText>
+                )}
+              </SocialLinks>
+            </Section>
           )}
 
-          {/* Botão Editar (se for seu perfil) */}
+          {/* Botão Editar (se for seu perfil) - ÚNICO */}
           {isOwnProfile && (
             <EditButton onClick={() => navigate("/profile/edit")}>
-              ✏️ Editar Perfil
+              Editar Perfil
             </EditButton>
           )}
         </ProfileCard>
