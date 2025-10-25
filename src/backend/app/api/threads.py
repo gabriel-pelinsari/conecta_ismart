@@ -84,6 +84,23 @@ def create_comment(thread_id: int, data: CommentCreate, db: Session = Depends(ge
     db.refresh(comment)
     return enrich_comment(comment, db)
 
+# === Listar comentários de uma thread ===
+@router.get("/{thread_id}/comments", response_model=List[CommentOut])
+def list_comments(thread_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    thread = db.query(Thread).filter(Thread.id == thread_id).first()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread não encontrada.")
+
+    comments = (
+        db.query(Comment)
+        .filter(Comment.thread_id == thread_id)
+        .order_by(Comment.created_at.desc())
+        .all()
+    )
+
+    return [enrich_comment(c, db) for c in comments]
+
+
 # === Votar em Thread ===
 @router.post("/{thread_id}/vote")
 def vote_thread(thread_id: int, vote: VoteIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):

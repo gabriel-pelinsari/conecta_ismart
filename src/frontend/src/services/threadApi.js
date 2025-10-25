@@ -6,6 +6,16 @@ function auth() {
 }
 
 export const threadApi = {
+  comments: async (threadId) => {
+    const res = await api.get(`/threads/${threadId}/comments`);
+    return res.data;
+  },
+
+  addComment: async (threadId, content) => {
+    const res = await api.post(`/threads/${threadId}/comments`, { content });
+    return res.data;
+  },
+  
   async list({ skip = 0, limit = 20, search = "", category, university }) {
     const params = new URLSearchParams();
     params.set("skip", String(skip));

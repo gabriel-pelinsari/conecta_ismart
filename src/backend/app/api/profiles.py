@@ -50,6 +50,45 @@ def _to_public(profile: Profile, db: Session) -> ProfilePublicOut:
         badges=get_user_badges(profile.user_id, db),
     )
 
+@router.get("/by_email", response_model=Union[ProfilePublicOut, ProfilePrivateOut])
+def get_profile_by_email(
+    email: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    🔍 Busca o perfil de um usuário pelo e-mail.
+    - Se for o próprio usuário: retorna perfil privado
+    - Se o perfil for público: retorna perfil público
+    - Se for amigo: retorna perfil privado
+    - Caso contrário: retorna 403 (perfil privado)
+    """
+    logger.info(f"🔍 Buscando perfil por email: {email}")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    profile = db.query(Profile).filter(Profile.user_id == user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+
+    # próprio usuário → privado
+    if current_user.id == user.id:
+        return _to_private(profile, db)
+
+    # público → público
+    if profile.is_public:
+        return _to_public(profile, db)
+
+    # amigo → privado
+    if are_friends(current_user.id, user.id):
+        return _to_private(profile, db)
+
+    # senão → perfil privado
+    raise HTTPException(status_code=403, detail="Perfil privado")
+
+
 def _to_private(profile: Profile, db: Session) -> ProfilePrivateOut:
     # Buscar interesses do usuário
     user_interests = (
