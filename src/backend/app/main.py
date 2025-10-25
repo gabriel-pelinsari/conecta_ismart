@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import logging
+from app.models import user
 
 # === CONFIGURAR LOGGING ===
 logging.basicConfig(
@@ -10,12 +11,8 @@ logging.basicConfig(
 )
 
 # === Imports ===
-from app.api import auth, profiles, interests  
 from app.db.session import engine
-from app.models import user, profile
-
-# === Criação das tabelas no banco ===
-user.Base.metadata.create_all(bind=engine)
+from app.api import auth, profiles, interests, threads
 
 # === Inicialização do app ===
 app = FastAPI(title="ISMART Conecta API", version="1.0.0")
@@ -24,6 +21,9 @@ app = FastAPI(title="ISMART Conecta API", version="1.0.0")
 app.include_router(auth.router)
 app.include_router(profiles.router)
 app.include_router(interests.router)  
+app.include_router(threads.router)
+
+user.Base.metadata.create_all(bind=engine)
 
 # === CORS ===
 origins = ["*"]

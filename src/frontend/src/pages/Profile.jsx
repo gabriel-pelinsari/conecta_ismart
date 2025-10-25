@@ -159,8 +159,18 @@ const SocialText = styled.div`
   word-break: break-all;
 `;
 
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 12px;
+  flex-direction: column;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    flex-direction: column;
+  }
+`;
+
 const EditButton = styled(Button)`
-  width: 100%;
+  flex: 1;
   padding: 14px 24px;
   background: ${({ theme }) => theme.colors.primary};
   color: white;
@@ -170,6 +180,20 @@ const EditButton = styled(Button)`
 
   &:hover {
     opacity: 0.9;
+  }
+`;
+
+const ActionButton = styled(Button)`
+  flex: 1;
+  padding: 14px 24px;
+  font-weight: 600;
+  font-size: 15px;
+  border: 1px solid ${({ theme }) => theme.colors.outline};
+  background: transparent;
+  color: ${({ theme }) => theme.colors.primary};
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.outline};
   }
 `;
 
@@ -202,7 +226,7 @@ function decodeJWT(token) {
     const payload = JSON.parse(atob(token.split(".")[1]));
     return payload;
   } catch (e) {
-    console.error("Erro ao decodificar JWT:", e);
+    console.error("❌ Erro ao decodificar JWT:", e);
     return null;
   }
 }
@@ -214,25 +238,30 @@ export default function Profile() {
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
 
+  // ✅ Extrair user_id do token
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
       const payload = decodeJWT(token);
       if (payload) {
-        setCurrentUserId(payload.user_id); // ✅ USA user_id
+        setCurrentUserId(payload.user_id);
         console.log(`🔐 Current user ID: ${payload.user_id}`);
       }
     }
   }, []);
 
+  // ✅ Verificar se é seu perfil
   useEffect(() => {
     if (profile && currentUserId) {
       const isOwn = profile.user_id === currentUserId;
       setIsOwnProfile(isOwn);
-      console.log(`📋 Profile user_id: ${profile.user_id}, Current user_id: ${currentUserId}, isOwn: ${isOwn}`);
+      console.log(
+        `📋 Profile user_id: ${profile.user_id}, Current user_id: ${currentUserId}, isOwn: ${isOwn}`
+      );
     }
   }, [profile, currentUserId]);
 
+  // ✅ Estados de carregamento e erro
   if (loading) {
     return (
       <Wrap>
@@ -253,7 +282,7 @@ export default function Profile() {
           <PageHeader>
             <Title>Perfil</Title>
           </PageHeader>
-          <EmptyState>Perfil não encontrado</EmptyState>
+          <EmptyState>{error || "Perfil não encontrado"}</EmptyState>
         </Container>
       </Wrap>
     );
@@ -268,7 +297,7 @@ export default function Profile() {
       <Container>
         <PageHeader>
           <Title>
-            {isOwnProfile ? "Seu Perfil" : "Perfil"}
+            {isOwnProfile ? "Seu Perfil" : `Perfil de ${profile.full_name}`}
           </Title>
           <Subtitle>
             {isOwnProfile
@@ -294,7 +323,7 @@ export default function Profile() {
               <Meta>
                 {profile.university && <div>🎓 {profile.university}</div>}
                 {profile.course && <div>📚 {profile.course}</div>}
-                {profile.semester && <div>📅 {profile.semester}</div>}
+                {profile.semester && <div>📅 {profile.semester}º semestre</div>}
               </Meta>
             </Info>
           </Header>
@@ -308,10 +337,12 @@ export default function Profile() {
           )}
 
           {/* Stats */}
-          <Section>
-            <SectionTitle>Estatísticas</SectionTitle>
-            <ProfileStats stats={profile.stats} />
-          </Section>
+          {profile.stats && (
+            <Section>
+              <SectionTitle>Estatísticas</SectionTitle>
+              <ProfileStats stats={profile.stats} />
+            </Section>
+          )}
 
           <TwoColumnGrid>
             {/* Interesses */}
@@ -351,7 +382,11 @@ export default function Profile() {
               <SectionTitle>Contato</SectionTitle>
               <SocialLinks>
                 {profile.linkedin && (
-                  <SocialLink href={profile.linkedin} target="_blank" rel="noopener noreferrer">
+                  <SocialLink
+                    href={profile.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     🔗 LinkedIn
                   </SocialLink>
                 )}
@@ -365,11 +400,19 @@ export default function Profile() {
             </Section>
           )}
 
-          {/* Botão Editar (se for seu perfil) - ÚNICO */}
-          {isOwnProfile && (
+          {isOwnProfile ? (
             <EditButton onClick={() => navigate("/profile/edit")}>
               Editar Perfil
             </EditButton>
+          ) : (
+            <ButtonGroup>
+              <ActionButton onClick={() => console.log("Adicionar amigo")}>
+                Adicionar Amigo
+              </ActionButton>
+              <ActionButton onClick={() => console.log("Enviar mensagem")}>
+                Enviar Mensagem
+              </ActionButton>
+            </ButtonGroup>
           )}
         </ProfileCard>
       </Container>

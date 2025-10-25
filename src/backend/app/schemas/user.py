@@ -1,4 +1,6 @@
+# app/schemas/user.py
 from pydantic import BaseModel, EmailStr, constr, validator
+from pydantic.config import ConfigDict  # ⬅ novo
 from typing import Optional
 import re
 
@@ -28,8 +30,8 @@ class UserOut(UserBase):
     is_verified: bool
     role: str
 
-    class Config:
-        orm_mode = True
+    # ✅ Pydantic v2
+    model_config = ConfigDict(from_attributes=True)
 
 class Token(BaseModel):
     access_token: str

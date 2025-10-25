@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.base import Base
+from app.models.thread import Thread
 
 class User(Base):
     __tablename__ = "users"
@@ -32,6 +33,7 @@ class User(Base):
     )
     badges = relationship("UserBadge", back_populates="user", cascade="all, delete-orphan")
     interests = relationship("UserInterest", back_populates="user", cascade="all, delete-orphan")
+    threads = relationship("Thread", back_populates="author", cascade="all, delete-orphan")
 
 
 class UserStats(Base):

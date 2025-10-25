@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
+import Explore from "./pages/Explore";
 
 /* === Função auxiliar para decodificar JWT === */
 function decodeJWT(token) {
@@ -138,6 +139,15 @@ export default function App() {
           element={
             <ProtectedRoute token={token}>
               <ProfileEdit />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route 
+          path="/explore"
+          element={
+            <ProtectedRoute token={token}>
+              <Explore />
             </ProtectedRoute>
           }
         />

@@ -8,7 +8,7 @@ export function useProfile(userId = null) {
 
   useEffect(() => {
     loadProfile();
-  }, [userId]);
+  }, [userId]); // ✅ Recarrega quando userId muda
 
   async function loadProfile() {
     try {
@@ -17,20 +17,29 @@ export function useProfile(userId = null) {
 
       const token = localStorage.getItem("token");
       if (!token) {
-        throw new Error("Token não encontrado");
+        throw new Error("Token não encontrado - Por favor, faça login");
       }
+
+      console.log(`📋 Carregando perfil... (userId: ${userId || "meu perfil"})`);
 
       let data;
       if (userId) {
+        // ✅ Busca perfil de outro usuário
+        console.log(`🔍 Buscando perfil do usuário ${userId}...`);
         data = await profileApi.getProfile(userId, token);
+        console.log(`✅ Perfil de outro usuário carregado:`, data);
       } else {
+        // ✅ Busca seu próprio perfil
+        console.log(`👤 Buscando meu perfil...`);
         data = await profileApi.getMyProfile(token);
+        console.log(`✅ Meu perfil carregado:`, data);
       }
 
       setProfile(data);
     } catch (err) {
-      console.error("Erro ao carregar perfil:", err);
+      console.error("❌ Erro ao carregar perfil:", err);
       setError(err.message || "Erro ao carregar perfil");
+      setProfile(null);
     } finally {
       setLoading(false);
     }

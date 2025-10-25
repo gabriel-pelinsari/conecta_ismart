@@ -8,7 +8,11 @@ from dotenv import load_dotenv
 # Carrega variáveis do .env
 load_dotenv()
 
-# Importa Base (todos os models)
+# Importa todos os modelos usados
+from app.models import user, profile, social, gamification
+from app.models.thread import Thread, Comment, ThreadVote, CommentVote
+
+# Define metadata
 from app.db.base import Base
 target_metadata = Base.metadata
 
