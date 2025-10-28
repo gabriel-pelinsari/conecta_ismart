@@ -3,6 +3,7 @@ import styled from "styled-components";
 import ThreadComposeBar from "../components/Threads/ThreadComposeBar";
 import ThreadCard from "../components/Threads/ThreadCard";
 import useThreads from "../hooks/useThreads";
+import threadApi from "../services/threadApi";
 
 const Page = styled.main`
   min-height: 100vh;
@@ -30,6 +31,17 @@ export default function Home() {
   const api = useThreads();
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [threads, setThreads] = useState([]);
+  const [filterTag, setFilterTag] = useState(null);
+
+  async function fetchThreads(tag = null) {
+    const data = await threadApi.list(tag ? { tag } : {});
+    setThreads(data);
+  }
+
+  useEffect(() => {
+    fetchThreads(filterTag);
+  }, [filterTag]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 400);
@@ -69,7 +81,12 @@ export default function Home() {
         )}
 
         {api.items.map((t) => (
-          <ThreadCard key={t.id} thread={t} api={api} />
+          <ThreadCard
+            key={t.id}
+            thread={t}
+            api={threadApi}
+            onTagClick={(tag) => setFilterTag(tag)}
+          />
         ))}
 
         {api.loading && <LoadingText>Carregando...</LoadingText>}

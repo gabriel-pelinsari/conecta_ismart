@@ -1,5 +1,3 @@
-# backend/app/api/threads.py
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -8,8 +6,8 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.profile import Profile
 from app.models.thread import Thread, Comment, ThreadVote, CommentVote
-from app.schemas.thread import ThreadCreate, ThreadOut, CommentCreate, CommentOut, VoteIn
 from app.api.deps import get_current_user
+from app.schemas.thread import ThreadCreate, ThreadOut, CommentCreate, CommentOut, VoteIn, AuthorOut
 
 router = APIRouter(prefix="/threads", tags=["Threads"])
 
@@ -41,6 +39,7 @@ def list_threads(
     search: Optional[str] = None,
     category: Optional[str] = None,
     university: Optional[str] = None,
+    tag: Optional[str] = None, 
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
@@ -54,6 +53,9 @@ def list_threads(
 
     if university:
         query = query.filter(Thread.university == university)
+
+    if tag: 
+        query = query.filter(Thread.tags.ilike(f"%{tag}%"))
 
     query = query.order_by(desc(Thread.created_at)).offset(skip).limit(limit)
     threads = query.all()
@@ -100,7 +102,6 @@ def list_comments(thread_id: int, db: Session = Depends(get_db), user: User = De
 
     return [enrich_comment(c, db) for c in comments]
 
-
 # === Votar em Thread ===
 @router.post("/{thread_id}/vote")
 def vote_thread(thread_id: int, vote: VoteIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -121,7 +122,6 @@ def vote_thread(thread_id: int, vote: VoteIn, db: Session = Depends(get_db), use
 
     db.commit()
     return {"message": message}
-
 
 # === Votar em Comentário ===
 @router.post("/comments/{comment_id}/vote")
@@ -173,11 +173,24 @@ def delete_thread(thread_id: int, db: Session = Depends(get_db), user: User = De
     return {"message": "Thread deletada."}
 
 # === Helpers ===
+def _build_author_out(db: Session, user_id: int) -> AuthorOut:
+    user = db.query(User).filter(User.id == user_id).first()
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    return AuthorOut(
+        email=user.email if user else "",
+        nickname=getattr(profile, "nickname", None),
+        full_name=getattr(profile, "full_name", None),
+        photo_url=getattr(profile, "photo_url", None),
+    )
+
 def enrich_thread(thread: Thread, db: Session) -> ThreadOut:
-    from app.schemas.user import UserOut
-    author = db.query(User).filter(User.id == thread.user_id).first()
-    upvotes = db.query(func.count()).select_from(ThreadVote).filter(ThreadVote.thread_id == thread.id, ThreadVote.value == 1).scalar()
-    downvotes = db.query(func.count()).select_from(ThreadVote).filter(ThreadVote.thread_id == thread.id, ThreadVote.value == -1).scalar()
+    author = _build_author_out(db, thread.user_id)
+    upvotes = db.query(func.count()).select_from(ThreadVote).filter(
+        ThreadVote.thread_id == thread.id, ThreadVote.value == 1
+    ).scalar()
+    downvotes = db.query(func.count()).select_from(ThreadVote).filter(
+        ThreadVote.thread_id == thread.id, ThreadVote.value == -1
+    ).scalar()
     top_comments = (
         db.query(Comment)
         .filter(Comment.thread_id == thread.id)
@@ -196,25 +209,28 @@ def enrich_thread(thread: Thread, db: Session) -> ThreadOut:
         user_id=thread.user_id,
         university=thread.university,
         created_at=thread.created_at,
-        author=UserOut.from_orm(author),
+        author=author,
         upvotes=upvotes,
         downvotes=downvotes,
         is_reported=thread.is_reported,
-        top_comments=[enrich_comment(c, db) for c in top_comments]
+        top_comments=[enrich_comment(c, db) for c in top_comments],
     )
 
 def enrich_comment(comment: Comment, db: Session) -> CommentOut:
-    from app.schemas.user import UserOut
-    author = db.query(User).filter(User.id == comment.user_id).first()
-    upvotes = db.query(func.count()).select_from(CommentVote).filter(CommentVote.comment_id == comment.id, CommentVote.value == 1).scalar()
-    downvotes = db.query(func.count()).select_from(CommentVote).filter(CommentVote.comment_id == comment.id, CommentVote.value == -1).scalar()
+    author = _build_author_out(db, comment.user_id)
+    upvotes = db.query(func.count()).select_from(CommentVote).filter(
+        CommentVote.comment_id == comment.id, CommentVote.value == 1
+    ).scalar()
+    downvotes = db.query(func.count()).select_from(CommentVote).filter(
+        CommentVote.comment_id == comment.id, CommentVote.value == -1
+    ).scalar()
     return CommentOut(
         id=comment.id,
         content=comment.content,
         thread_id=comment.thread_id,
         user_id=comment.user_id,
         created_at=comment.created_at,
-        author=UserOut.from_orm(author),
+        author=author,
         upvotes=upvotes,
-        downvotes=downvotes
+        downvotes=downvotes,
     )

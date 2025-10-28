@@ -13,10 +13,30 @@ const CommentItem = styled.div`
   padding: 10px 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   &:not(:last-child) {
     border-bottom: 1px solid rgba(255,255,255,0.05);
   }
+`;
+
+const HeaderRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const Avatar = styled.img`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: ${({ theme }) => theme.colors.outline};
+`;
+
+const Name = styled.span`
+  font-size: 13px;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.text};
 `;
 
 const Meta = styled.div`
@@ -28,6 +48,7 @@ const Content = styled.div`
   font-size: 14px;
   color: ${({ theme }) => theme.colors.text};
   line-height: 1.5;
+  white-space: pre-line;
 `;
 
 const NewComment = styled.div`
@@ -76,12 +97,30 @@ export default function CommentSection({ threadId, initialTop = [], api }) {
       ) : comments.length === 0 ? (
         <Meta>Seja o primeiro a comentar!</Meta>
       ) : (
-        comments.map((c) => (
-          <CommentItem key={c.id}>
-            <Meta>por {c.author?.email || `usuário #${c.user_id}`}</Meta>
-            <Content>{c.content}</Content>
-          </CommentItem>
-        ))
+        comments.map((c) => {
+          const author = c.author || {};
+          const displayName =
+            author.nickname || author.full_name || "Usuário";
+          const photoUrl = author.photo_url
+            ? author.photo_url.startsWith("/media")
+              ? `http://localhost:8000${author.photo_url}`
+              : author.photo_url
+            : "https://ui-avatars.com/api/?name=" +
+              encodeURIComponent(displayName);
+
+          return (
+            <CommentItem key={c.id}>
+              <HeaderRow>
+                <Avatar src={photoUrl} alt={displayName} />
+                <div>
+                  <Name>{displayName}</Name>
+                  <Meta>{author.email || `usuário #${c.user_id}`}</Meta>
+                </div>
+              </HeaderRow>
+              <Content>{c.content}</Content>
+            </CommentItem>
+          );
+        })
       )}
 
       <NewComment>

@@ -15,19 +15,20 @@ export const threadApi = {
     const res = await api.post(`/threads/${threadId}/comments`, { content });
     return res.data;
   },
-  
-  async list({ skip = 0, limit = 20, search = "", category, university }) {
+
+  async list({ skip = 0, limit = 20, search = "", category, university, tag }) {
     const params = new URLSearchParams();
     params.set("skip", String(skip));
     params.set("limit", String(limit));
     if (search) params.set("search", search);
     if (category && category !== "todos") params.set("category", category);
     if (university) params.set("university", university);
+    if (tag) params.set("tag", tag); 
 
     const { data } = await api.get(`/threads?${params.toString()}`, {
       headers: auth(),
     });
-    return data; // ThreadOut[]
+    return data;
   },
 
   async create({ title, description, category, tags }) {
@@ -86,3 +87,5 @@ export const threadApi = {
     return data;
   },
 };
+
+export default threadApi;

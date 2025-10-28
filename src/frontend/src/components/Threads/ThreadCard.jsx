@@ -83,7 +83,7 @@ const Actions = styled.div`
   }
 `;
 
-export default function ThreadCard({ thread, api }) {
+export default function ThreadCard({ thread, api, onTagClick }) {
   const [expanded, setExpanded] = useState(false);
 
   const tags = thread.tags || [];
@@ -100,8 +100,8 @@ export default function ThreadCard({ thread, api }) {
 
   // 🧠 monta URL da foto de perfil do autor
   var photoUrl = thread.author.photo_url?.startsWith("/media")
-  ? `http://localhost:8000${thread.author.photo_url}`
-  : thread.author.photo_url;
+    ? `http://localhost:8000${thread.author.photo_url}`
+    : thread.author.photo_url;
 
 
   return (
@@ -124,7 +124,13 @@ export default function ThreadCard({ thread, api }) {
       {!!tags.length && (
         <Row>
           {tags.map((t, i) => (
-            <Tag key={i}>{t}</Tag>
+            <Tag
+              key={i}
+              style={{ cursor: "pointer" }}
+              onClick={() => onTagClick?.(t)}
+            >
+              #{t}
+            </Tag>
           ))}
         </Row>
       )}
