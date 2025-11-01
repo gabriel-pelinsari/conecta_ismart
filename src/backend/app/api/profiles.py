@@ -15,6 +15,7 @@ from app.schemas.profile import (
 )
 from app.services.social_graph import are_friends
 from app.services.stats_badges import get_user_stats, get_user_badges
+from app.services.university_groups import UniversityGroupService
 
 # === LOGGING ===
 logger = logging.getLogger(__name__)
@@ -209,15 +210,33 @@ def update_my_profile(
         db.commit()
         db.refresh(profile)
 
+    # Guardar universidade antiga para detectar mudanças (RF052)
+    old_university = profile.university
+
     for field, value in payload.dict().items():
         setattr(profile, field, value)
 
     db.add(profile)
     db.commit()
     db.refresh(profile)
-    
+
+    # RF052 - Adicionar automaticamente ao grupo da universidade
+    new_university = profile.university
+    if old_university != new_university:
+        try:
+            UniversityGroupService.handle_university_change(
+                db=db,
+                user_id=current_user.id,
+                old_university=old_university,
+                new_university=new_university
+            )
+            logger.info(f"✅ Usuário {current_user.id} atualizado nos grupos: {old_university} -> {new_university}")
+        except Exception as e:
+            logger.error(f"❌ Erro ao atualizar grupos da universidade: {str(e)}")
+            # Não falhar a atualização do perfil por causa disso
+
     logger.info(f"✅ Perfil atualizado: {current_user.email}")
-    
+
     return _to_private(profile, db)
 
 @router.post("/me/photo")
