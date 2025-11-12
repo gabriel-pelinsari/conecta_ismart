@@ -23,17 +23,17 @@ class InterestOut(InterestBase):
 # === SCHEMAS DE ALUNO (STUDENT CARD) ===
 class StudentCardOut(BaseModel):
     """Schema para exibir cards de alunos na página Explorar"""
-    id: UUID
+    id: int  # user_id
     full_name: str
     nickname: Optional[str] = None
     university: Optional[str] = None  # Nome da universidade (via relationship)
     course: Optional[str] = None
-    entry_year: Optional[int] = None  # Substituindo "semester"
+    semester: Optional[str] = None  # Mantendo semester ao invés de entry_year
     photo_url: Optional[str] = None
     interests: List[str] = Field(default_factory=list, description="Top 3 interesses principais")
     friendship_status: Optional[str] = Field(
         default=None,
-        description="Status: 'not_connected', 'pending_sent', 'pending_received', 'connected'"
+        description="Status: 'not_friends', 'pending_sent', 'pending_received', 'friends'"
     )
     compatibility_score: Optional[float] = Field(
         default=None,
@@ -59,8 +59,8 @@ class StudentFilters(BaseModel):
     # RF050 - Filtro por interesses
     interests: Optional[List[str]] = Field(None, description="Lista de interesses/tags (OR)")
 
-    # Filtro adicional por ano de entrada
-    entry_years: Optional[List[int]] = Field(None, description="Lista de anos de entrada (OR)")
+    # Filtro adicional por semestre
+    semesters: Optional[List[str]] = Field(None, description="Lista de semestres (OR)")
 
     # Ordenação
     order_by: Optional[str] = Field(
@@ -149,4 +149,4 @@ class FilterFacets(BaseModel):
     universities: List[FilterFacet] = Field(description="Universidades com contador de alunos")
     courses: List[FilterFacet] = Field(description="Cursos com contador de alunos")
     interests: List[FilterFacet] = Field(description="Interesses/tags populares com contador")
-    entry_years: List[FilterFacet] = Field(description="Anos de entrada com contador de alunos")
+    semesters: List[FilterFacet] = Field(description="Semestres com contador de alunos")

@@ -47,7 +47,7 @@ class ProfileSupabase(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    university = relationship("University", back_populates="profiles")
+    university_rel = relationship("University", back_populates="profiles", foreign_keys=[university_id])
     interests = relationship("ProfileInterest", back_populates="profile", cascade="all, delete-orphan")
     connections_sent = relationship(
         "Connection",

@@ -156,6 +156,30 @@ def list_all_users(
     
     return [_to_public(profile, db) for profile in profiles]
 
+@router.get("/public/{user_id}", response_model=ProfilePublicOut)
+def get_public_profile(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna o perfil público de um usuário específico.
+    Usado para visualização rápida no diretório de alunos.
+    """
+    logger.info(f"🔍 Buscando perfil público do usuário: {user_id}")
+    
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    if not profile:
+        logger.warning(f"❌ Perfil não encontrado: {user_id}")
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+
+    if not profile.is_public:
+        logger.warning(f"❌ Perfil privado: {user_id}")
+        raise HTTPException(status_code=403, detail="Perfil privado")
+
+    logger.info(f"✅ Retornando perfil público")
+    return _to_public(profile, db)
+
 # ✅ ROTA /{user_id} POR ÚLTIMO (menos específica)
 @router.get("/{user_id}", response_model=Union[ProfilePublicOut, ProfilePrivateOut])
 def get_profile(

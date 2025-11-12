@@ -2,17 +2,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-import os
+from app.core.config import settings
 
-# Carrega variáveis do .env
-load_dotenv()
-
-# Monta a URL do banco
-DATABASE_URL = (
-    f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
-    f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
-)
+# Obtém a DATABASE_URL do settings (usa DATABASE_URL do .env se existir)
+DATABASE_URL = settings.get_database_url()
 
 # Cria a engine SQLAlchemy
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
