@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import { Link, useLocation } from "react-router-dom";
-import { FiHome, FiUser, FiBell, FiLogOut } from "react-icons/fi";
+import { FiHome, FiUser, FiBell, FiLogOut, FiUsers } from "react-icons/fi";
 
 const Bar = styled.nav`
   position: sticky;
@@ -82,6 +82,15 @@ export default function NavBar({ role, logout }) {
           $active={pathname === "/home"}
         >
           <FiHome />
+        </StyledLink>
+
+        <StyledLink
+          to="/students"
+          title="Alunos"
+          aria-label="Diretório de Alunos"
+          $active={pathname === "/students"}
+        >
+          <FiUsers />
         </StyledLink>
 
         <StyledLink

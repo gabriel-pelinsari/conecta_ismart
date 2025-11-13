@@ -15,6 +15,7 @@ from app.schemas.profile import (
 )
 from app.services.social_graph import are_friends
 from app.services.stats_badges import get_user_stats, get_user_badges
+from app.services.university_groups import UniversityGroupService
 
 # === LOGGING ===
 logger = logging.getLogger(__name__)
@@ -155,6 +156,30 @@ def list_all_users(
     
     return [_to_public(profile, db) for profile in profiles]
 
+@router.get("/public/{user_id}", response_model=ProfilePublicOut)
+def get_public_profile(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna o perfil público de um usuário específico.
+    Usado para visualização rápida no diretório de alunos.
+    """
+    logger.info(f"🔍 Buscando perfil público do usuário: {user_id}")
+    
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    if not profile:
+        logger.warning(f"❌ Perfil não encontrado: {user_id}")
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+
+    if not profile.is_public:
+        logger.warning(f"❌ Perfil privado: {user_id}")
+        raise HTTPException(status_code=403, detail="Perfil privado")
+
+    logger.info(f"✅ Retornando perfil público")
+    return _to_public(profile, db)
+
 # ✅ ROTA /{user_id} POR ÚLTIMO (menos específica)
 @router.get("/{user_id}", response_model=Union[ProfilePublicOut, ProfilePrivateOut])
 def get_profile(
@@ -209,15 +234,33 @@ def update_my_profile(
         db.commit()
         db.refresh(profile)
 
+    # Guardar universidade antiga para detectar mudanças (RF052)
+    old_university = profile.university
+
     for field, value in payload.dict().items():
         setattr(profile, field, value)
 
     db.add(profile)
     db.commit()
     db.refresh(profile)
-    
+
+    # RF052 - Adicionar automaticamente ao grupo da universidade
+    new_university = profile.university
+    if old_university != new_university:
+        try:
+            UniversityGroupService.handle_university_change(
+                db=db,
+                user_id=current_user.id,
+                old_university=old_university,
+                new_university=new_university
+            )
+            logger.info(f"✅ Usuário {current_user.id} atualizado nos grupos: {old_university} -> {new_university}")
+        except Exception as e:
+            logger.error(f"❌ Erro ao atualizar grupos da universidade: {str(e)}")
+            # Não falhar a atualização do perfil por causa disso
+
     logger.info(f"✅ Perfil atualizado: {current_user.email}")
-    
+
     return _to_private(profile, db)
 
 @router.post("/me/photo")

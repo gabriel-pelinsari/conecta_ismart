@@ -8,6 +8,7 @@ import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
 import Explore from "./pages/Explore";
+import StudentDirectory from "./pages/StudentDirectory";
 
 /* === Função auxiliar para decodificar JWT === */
 function decodeJWT(token) {
@@ -148,6 +149,15 @@ export default function App() {
           element={
             <ProtectedRoute token={token}>
               <Explore />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route 
+          path="/students"
+          element={
+            <ProtectedRoute token={token}>
+              <StudentDirectory />
             </ProtectedRoute>
           }
         />
