@@ -9,7 +9,9 @@ class Friendship(Base):
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     friend_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    accepted_at = Column(DateTime(timezone=False))
+    status = Column(String(20), default="pending", nullable=False)
+    created_at = Column(DateTime(timezone=False), server_default=func.now())
+    updated_at = Column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", foreign_keys=[user_id], back_populates="friendships")
     friend = relationship("User", foreign_keys=[friend_id], back_populates="friends")

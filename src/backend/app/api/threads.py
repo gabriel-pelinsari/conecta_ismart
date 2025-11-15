@@ -29,7 +29,7 @@ def create_thread(data: ThreadCreate, db: Session = Depends(get_db), user: User 
     db.add(thread)
     db.commit()
     db.refresh(thread)
-    return enrich_thread(thread, db)
+    return enrich_thread(thread, db, user.id)
 
 # === Buscar Threads com Filtros e Paginação ===
 @router.get("/", response_model=List[ThreadOut])
@@ -59,7 +59,7 @@ def list_threads(
 
     query = query.order_by(desc(Thread.created_at)).offset(skip).limit(limit)
     threads = query.all()
-    return [enrich_thread(t, db) for t in threads]
+    return [enrich_thread(t, db, user.id) for t in threads]
 
 # === Ver Thread por ID ===
 @router.get("/{thread_id}", response_model=ThreadOut)
@@ -67,7 +67,7 @@ def get_thread(thread_id: int, db: Session = Depends(get_db), user: User = Depen
     thread = db.query(Thread).filter(Thread.id == thread_id).first()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread não encontrada.")
-    return enrich_thread(thread, db)
+    return enrich_thread(thread, db, user.id)
 
 # === Comentar em Thread ===
 @router.post("/{thread_id}/comments", response_model=CommentOut)
@@ -158,7 +158,7 @@ def list_reported(db: Session = Depends(get_db), user: User = Depends(get_curren
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Apenas admins podem acessar.")
     threads = db.query(Thread).filter(Thread.is_reported == True).all()
-    return [enrich_thread(t, db) for t in threads]
+    return [enrich_thread(t, db, user.id) for t in threads]
 
 # === Admin: deletar thread ===
 @router.delete("/{thread_id}")
@@ -180,10 +180,12 @@ def _build_author_out(db: Session, user_id: int) -> AuthorOut:
         email=user.email if user else "",
         nickname=getattr(profile, "nickname", None),
         full_name=getattr(profile, "full_name", None),
+        university=getattr(profile, "university", None),
+        course=getattr(profile, "course", None),
         photo_url=getattr(profile, "photo_url", None),
     )
 
-def enrich_thread(thread: Thread, db: Session) -> ThreadOut:
+def enrich_thread(thread: Thread, db: Session, current_user_id: Optional[int] = None) -> ThreadOut:
     author = _build_author_out(db, thread.user_id)
     upvotes = db.query(func.count()).select_from(ThreadVote).filter(
         ThreadVote.thread_id == thread.id, ThreadVote.value == 1
@@ -200,6 +202,16 @@ def enrich_thread(thread: Thread, db: Session) -> ThreadOut:
         .limit(3)
         .all()
     )
+    user_vote = 0
+    if current_user_id:
+        vote = (
+            db.query(ThreadVote)
+            .filter(ThreadVote.thread_id == thread.id, ThreadVote.user_id == current_user_id)
+            .first()
+        )
+        if vote:
+            user_vote = vote.value
+
     return ThreadOut(
         id=thread.id,
         title=thread.title,
@@ -212,6 +224,7 @@ def enrich_thread(thread: Thread, db: Session) -> ThreadOut:
         author=author,
         upvotes=upvotes,
         downvotes=downvotes,
+        user_vote=user_vote,
         is_reported=thread.is_reported,
         top_comments=[enrich_comment(c, db) for c in top_comments],
     )

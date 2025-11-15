@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { threadApi } from "../services/threadApi";
+import { profileApi } from "../services/profileApi";
 
 // pega universidade do perfil salvo em memória? por simplicidade,
 // lemos do token e deixamos o componente decidir passar `university` quando precisar.
@@ -13,8 +14,10 @@ export default function useThreads() {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("todos"); // "geral" | "faculdade" | "todos"
+  const [category, setCategory] = useState("geral"); // "geral" | "faculdade"
   const [error, setError] = useState("");
+  const [userUniversity, setUserUniversity] = useState(null);
+  const [universityLoaded, setUniversityLoaded] = useState(false);
   const pageSize = 20;
 
   const currentUser = (() => {
@@ -24,17 +27,47 @@ export default function useThreads() {
 
   const load = useCallback(async (reset = false) => {
     if (loading) return;
+
+    const facultyScope = category === "faculdade";
+
+    // Aguarda saber a universidade do usuário antes de filtrar por faculdade
+    if (facultyScope && !universityLoaded) {
+      if (reset) {
+        setItems([]);
+        setSkip(0);
+        setHasMore(false);
+      }
+      return;
+    }
+
+    // Se já carregamos o perfil e não há universidade, não há threads para mostrar
+    if (facultyScope && universityLoaded && !userUniversity) {
+      setItems([]);
+      setSkip(0);
+      setHasMore(false);
+      setError("Complete seu perfil com a universidade para ver postagens da sua faculdade.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      const res = await threadApi.list({
+      const filters = {
         skip: reset ? 0 : skip,
         limit: pageSize,
         search,
-        category: category === "todos" ? undefined : category,
-        university: category === "faculdade" ? undefined : undefined, // universidade pode ser filtrada no backend via ?university=
-      });
+      };
+
+      if (!facultyScope) {
+        filters.category = category;
+      }
+
+      if (facultyScope && userUniversity) {
+        filters.university = userUniversity;
+      }
+
+      const res = await threadApi.list(filters);
 
       const nextItems = reset ? res : [...items, ...res];
       setItems(nextItems);
@@ -46,12 +79,38 @@ export default function useThreads() {
     } finally {
       setLoading(false);
     }
-  }, [category, search, skip, items, loading]);
+  }, [category, search, skip, items, loading, userUniversity, universityLoaded]);
+
+  // Carrega universidade do usuário logado (para filtro "faculdade")
+  useEffect(() => {
+    let active = true;
+    async function fetchUniversity() {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        if (active) setUniversityLoaded(true);
+        return;
+      }
+      try {
+        const profile = await profileApi.getMyProfile(token);
+        if (active) {
+          setUserUniversity(profile?.university || null);
+        }
+      } catch (e) {
+        console.error("Erro ao buscar universidade do usuário", e);
+      } finally {
+        if (active) setUniversityLoaded(true);
+      }
+    }
+    fetchUniversity();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // trocar filtros / busca → recarrega
   useEffect(() => {
     load(true);
-  }, [category, search]);
+  }, [category, search, userUniversity, universityLoaded]);
 
   // criar
   async function createThread(payload) {
@@ -137,5 +196,7 @@ export default function useThreads() {
     fetchComments,
     addComment,
     currentUser,
+    userUniversity,
+    universityLoaded,
   };
 }

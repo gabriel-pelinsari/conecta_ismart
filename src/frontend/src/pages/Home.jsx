@@ -3,7 +3,6 @@ import styled from "styled-components";
 import ThreadComposeBar from "../components/Threads/ThreadComposeBar";
 import ThreadCard from "../components/Threads/ThreadCard";
 import useThreads from "../hooks/useThreads";
-import threadApi from "../services/threadApi";
 
 const Page = styled.main`
   min-height: 100vh;
@@ -21,6 +20,37 @@ const Feed = styled.div`
   gap: 10px;
 `;
 
+const FiltersRow = styled.div`
+  width: 100%;
+  max-width: ${({ theme }) => theme.sizes.containerMedium};
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 auto 12px auto;
+`;
+
+const FilterChip = styled.button`
+  padding: 6px 14px;
+  border-radius: ${({ theme }) => theme.radii.xs};
+  border: 1px solid
+    ${({ theme, $active }) =>
+      $active ? theme.colors.primary : theme.colors.outline};
+  background: ${({ theme, $active }) =>
+    $active ? theme.colors.primary : theme.colors.surface};
+  color: ${({ theme, $active }) =>
+    $active ? theme.colors.bg : theme.colors.text};
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  opacity: ${({ disabled }) => (disabled ? 0.5 : 1)};
+  pointer-events: ${({ disabled }) => (disabled ? "none" : "auto")};
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
 const LoadingText = styled.p`
   text-align: center;
   color: ${({ theme }) => theme.colors.textMuted};
@@ -31,17 +61,6 @@ export default function Home() {
   const api = useThreads();
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [threads, setThreads] = useState([]);
-  const [filterTag, setFilterTag] = useState(null);
-
-  async function fetchThreads(tag = null) {
-    const data = await threadApi.list(tag ? { tag } : {});
-    setThreads(data);
-  }
-
-  useEffect(() => {
-    fetchThreads(filterTag);
-  }, [filterTag]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 400);
@@ -75,8 +94,40 @@ export default function Home() {
   return (
     <Page>
       <ThreadComposeBar onSearch={setSearch} onCreate={handleCreate} />
+
+      <FiltersRow>
+        <FilterChip
+          type="button"
+          $active={api.category === "geral"}
+          onClick={() => api.setCategory("geral")}
+          aria-pressed={api.category === "geral"}
+        >
+          Geral
+        </FilterChip>
+        <FilterChip
+          type="button"
+          $active={api.category === "faculdade"}
+          onClick={() => api.setCategory("faculdade")}
+          aria-pressed={api.category === "faculdade"}
+          disabled={api.universityLoaded && !api.userUniversity}
+          title={
+            api.universityLoaded && !api.userUniversity
+              ? "Complete seu perfil com a universidade para usar este filtro"
+              : undefined
+          }
+        >
+          Minha faculdade
+        </FilterChip>
+      </FiltersRow>
+
       <Feed>
-        {api.items.length === 0 && !api.loading && (
+        {api.category === "faculdade" && !api.universityLoaded && (
+          <LoadingText>Carregando sua faculdade…</LoadingText>
+        )}
+
+        {api.error && <LoadingText>{api.error}</LoadingText>}
+
+        {api.items.length === 0 && !api.loading && !api.error && (
           <LoadingText>Nenhuma thread encontrada.</LoadingText>
         )}
 
@@ -84,8 +135,7 @@ export default function Home() {
           <ThreadCard
             key={t.id}
             thread={t}
-            api={threadApi}
-            onTagClick={(tag) => setFilterTag(tag)}
+            api={api}
           />
         ))}
 

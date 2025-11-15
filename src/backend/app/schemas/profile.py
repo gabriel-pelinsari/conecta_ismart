@@ -43,6 +43,7 @@ class ProfilePublicOut(BaseModel):
     interests: List[InterestOut] = []
     stats: ProfileStats = ProfileStats()
     badges: List[ProfileBadge] = []
+    friendship_status: Optional[str] = None
 
 class ProfilePrivateOut(ProfilePublicOut):
     linkedin: Optional[str]

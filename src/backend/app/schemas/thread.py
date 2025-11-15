@@ -9,6 +9,8 @@ class AuthorOut(BaseModel):
     email: str
     nickname: Optional[str] = None
     full_name: Optional[str] = None
+    university: Optional[str] = None
+    course: Optional[str] = None
     photo_url: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -51,6 +53,7 @@ class ThreadOut(ThreadBase):
     author: AuthorOut
     upvotes: int = 0
     downvotes: int = 0
+    user_vote: int = 0
     is_reported: bool = False
     top_comments: List[CommentOut] = []
     model_config = ConfigDict(from_attributes=True)

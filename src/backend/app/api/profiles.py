@@ -1,7 +1,7 @@
 import os
 import uuid
 import logging
-from typing import Union, List
+from typing import Union, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -13,7 +13,11 @@ from app.models.social import Interest, UserInterest
 from app.schemas.profile import (
     ProfileUpdate, ProfilePublicOut, ProfilePrivateOut
 )
-from app.services.social_graph import are_friends
+from app.services.social_graph import (
+    create_friendship,
+    respond_friendship,
+    get_friend_status,
+)
 from app.services.stats_badges import get_user_stats, get_user_badges
 
 # === LOGGING ===
@@ -27,7 +31,7 @@ os.makedirs(MEDIA_DIR, exist_ok=True)
 ALLOWED_MIMES = {"image/jpeg", "image/png"}
 MAX_BYTES = 2 * 1024 * 1024  # 2MB
 
-def _to_public(profile: Profile, db: Session) -> ProfilePublicOut:
+def _to_public(profile: Profile, db: Session, viewer_id: Optional[int] = None) -> ProfilePublicOut:
     # Buscar interesses do usuário
     user_interests = (
         db.query(Interest)
@@ -36,6 +40,10 @@ def _to_public(profile: Profile, db: Session) -> ProfilePublicOut:
         .all()
     )
     
+    friendship_status = None
+    if viewer_id and viewer_id != profile.user_id:
+        friendship_status = get_friend_status(db, viewer_id, profile.user_id)
+
     return ProfilePublicOut(
         user_id=profile.user_id,
         full_name=profile.full_name,
@@ -48,6 +56,7 @@ def _to_public(profile: Profile, db: Session) -> ProfilePublicOut:
         interests=user_interests,
         stats=get_user_stats(profile.user_id, db),
         badges=get_user_badges(profile.user_id, db),
+        friendship_status=friendship_status,
     )
 
 @router.get("/by_email", response_model=Union[ProfilePublicOut, ProfilePrivateOut])
@@ -73,23 +82,25 @@ def get_profile_by_email(
     if not profile:
         raise HTTPException(status_code=404, detail="Perfil não encontrado")
 
+    friendship_status = get_friend_status(db, current_user.id, user.id)
+
     # próprio usuário → privado
     if current_user.id == user.id:
-        return _to_private(profile, db)
+        return _to_private(profile, db, current_user.id)
+
+    # amigo → privado
+    if friendship_status == "friends":
+        return _to_private(profile, db, current_user.id)
 
     # público → público
     if profile.is_public:
-        return _to_public(profile, db)
-
-    # amigo → privado
-    if are_friends(current_user.id, user.id):
-        return _to_private(profile, db)
+        return _to_public(profile, db, current_user.id)
 
     # senão → perfil privado
     raise HTTPException(status_code=403, detail="Perfil privado")
 
 
-def _to_private(profile: Profile, db: Session) -> ProfilePrivateOut:
+def _to_private(profile: Profile, db: Session, viewer_id: Optional[int] = None) -> ProfilePrivateOut:
     # Buscar interesses do usuário
     user_interests = (
         db.query(Interest)
@@ -98,6 +109,10 @@ def _to_private(profile: Profile, db: Session) -> ProfilePrivateOut:
         .all()
     )
     
+    friendship_status = None
+    if viewer_id and viewer_id != profile.user_id:
+        friendship_status = get_friend_status(db, viewer_id, profile.user_id)
+
     return ProfilePrivateOut(
         user_id=profile.user_id,
         full_name=profile.full_name,
@@ -110,6 +125,7 @@ def _to_private(profile: Profile, db: Session) -> ProfilePrivateOut:
         interests=user_interests,
         stats=get_user_stats(profile.user_id, db),
         badges=get_user_badges(profile.user_id, db),
+        friendship_status=friendship_status,
         linkedin=profile.linkedin,
         instagram=profile.instagram,
         whatsapp=profile.whatsapp,
@@ -135,7 +151,7 @@ def get_my_profile(
         db.commit()
         db.refresh(profile)
     
-    return _to_private(profile, db)
+    return _to_private(profile, db, current_user.id)
 
 # ✅ ROTA /users SEGUNDO (mais específica que /{user_id})
 @router.get("/users", response_model=List[ProfilePublicOut])
@@ -153,7 +169,7 @@ def list_all_users(
     
     logger.info(f"📋 {len(profiles)} perfis públicos encontrados")
     
-    return [_to_public(profile, db) for profile in profiles]
+    return [_to_public(profile, db, current_user.id) for profile in profiles]
 
 # ✅ ROTA /{user_id} POR ÚLTIMO (menos específica)
 @router.get("/{user_id}", response_model=Union[ProfilePublicOut, ProfilePrivateOut])
@@ -175,20 +191,22 @@ def get_profile(
         logger.warning(f"❌ Perfil não encontrado: {user_id}")
         raise HTTPException(status_code=404, detail="Perfil não encontrado")
 
+    friendship_status = get_friend_status(db, current_user.id, user_id)
+
     if current_user.id == user_id:
         logger.info(f"✅ Retornando perfil privado (seu perfil)")
-        return _to_private(profile, db)
+        return _to_private(profile, db, current_user.id)
 
-    if not profile.is_public:
-        logger.warning(f"❌ Perfil privado: {user_id}")
-        raise HTTPException(status_code=403, detail="Perfil privado")
-
-    if are_friends(current_user.id, user_id):
+    if friendship_status == "friends":
         logger.info(f"✅ Retornando perfil privado (amigos)")
-        return _to_private(profile, db)
+        return _to_private(profile, db, current_user.id)
 
-    logger.info(f"✅ Retornando perfil público")
-    return _to_public(profile, db)
+    if profile.is_public:
+        logger.info(f"✅ Retornando perfil público")
+        return _to_public(profile, db, current_user.id)
+
+    logger.warning(f"❌ Perfil privado: {user_id}")
+    raise HTTPException(status_code=403, detail="Perfil privado")
 
 @router.put("/me", response_model=ProfilePrivateOut)
 def update_my_profile(
@@ -218,7 +236,60 @@ def update_my_profile(
     
     logger.info(f"✅ Perfil atualizado: {current_user.email}")
     
-    return _to_private(profile, db)
+    return _to_private(profile, db, current_user.id)
+
+
+@router.post("/{user_id}/friendship")
+def add_friendship(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="Não é possível adicionar você mesmo.")
+
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    status = create_friendship(db, current_user.id, user_id)
+    return {"status": status}
+
+
+@router.post("/{user_id}/friendship/respond")
+def respond_friendship_endpoint(
+    user_id: int,
+    accept: bool,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="Operação inválida.")
+
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    current_status = get_friend_status(db, current_user.id, user_id)
+
+    if accept:
+        if current_status != "incoming":
+            raise HTTPException(status_code=400, detail="Nenhum convite pendente para aceitar.")
+        orientation = (user_id, current_user.id)
+    else:
+        if current_status == "incoming":
+            orientation = (user_id, current_user.id)
+        elif current_status in {"pending", "friends"}:
+            orientation = (current_user.id, user_id)
+        else:
+            raise HTTPException(status_code=400, detail="Nenhum convite ou amizade para atualizar.")
+
+    try:
+        status = respond_friendship(db, orientation[0], orientation[1], accept)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Pedido de amizade não encontrado")
+
+    return {"status": status}
 
 @router.post("/me/photo")
 async def upload_my_photo(

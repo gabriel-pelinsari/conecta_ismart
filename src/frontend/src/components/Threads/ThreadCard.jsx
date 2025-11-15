@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import Card from "../ui/Card";
 import Tag from "../ui/Tag";
@@ -20,16 +21,17 @@ const Header = styled.div`
   margin-bottom: 10px;
 `;
 
-const Avatar = styled.div`
+const AvatarButton = styled.button`
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: ${({ $url, theme }) =>
-    $url ? `url(${$url})` : theme.colors.outline};
-  background-size: cover;
-  background-position: center;
   border: 2px solid ${({ theme }) => theme.colors.outline};
+  background: ${({ $url, theme }) =>
+    $url ? `url(${$url}) center/cover no-repeat` : theme.colors.outline};
   flex-shrink: 0;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
 `;
 
 const HeaderInfo = styled.div`
@@ -85,6 +87,7 @@ const Actions = styled.div`
 
 export default function ThreadCard({ thread, api, onTagClick }) {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
 
   const tags = thread.tags || [];
   const up = thread.upvotes || 0;
@@ -107,7 +110,12 @@ export default function ThreadCard({ thread, api, onTagClick }) {
   return (
     <Wrap>
       <Header>
-        <Avatar $url={photoUrl} />
+        <AvatarButton
+          type="button"
+          $url={photoUrl}
+          onClick={() => navigate(`/profile/${thread.user_id}`)}
+          aria-label="Ver perfil do autor"
+        />
         <HeaderInfo>
           <AuthorName>
             {thread.author?.nickname || thread.author?.full_name || "Usuário"}

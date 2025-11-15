@@ -1,17 +1,17 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import api from "../api/axios";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Tag from "../components/ui/Tag";
 import Badge from "../components/ui/Badge";
 import ProfileStats from "../components/ProfileStats";
 import { useProfile } from "../hooks/useProfile";
+import { profileApi } from "../services/profileApi";
 
 const Wrap = styled.main`
   min-height: 100vh;
-  padding: 80px 24px 40px 24px;
+  padding: 24px;
   background: ${({ theme }) => theme.colors.bg};
 `;
 
@@ -237,6 +237,9 @@ export default function Profile() {
   const { profile, loading, error, refetch } = useProfile(userId ? parseInt(userId) : null);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [friendshipStatus, setFriendshipStatus] = useState("none");
+  const [friendLoading, setFriendLoading] = useState(false);
+  const [friendError, setFriendError] = useState("");
 
   // ✅ Extrair user_id do token
   useEffect(() => {
@@ -260,6 +263,16 @@ export default function Profile() {
       );
     }
   }, [profile, currentUserId]);
+
+  useEffect(() => {
+    if (!profile) return;
+    if (profile.user_id === currentUserId) {
+      setFriendshipStatus("self");
+    } else {
+      setFriendshipStatus(profile.friendship_status || "none");
+    }
+    setFriendError("");
+  }, [profile, currentUserId, isOwnProfile]);
 
   // ✅ Estados de carregamento e erro
   if (loading) {
@@ -292,6 +305,51 @@ export default function Profile() {
     ? `http://localhost:8000${profile.photo_url}`
     : profile.photo_url;
 
+  async function ensureAuthToken() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login");
+      throw new Error("login_required");
+    }
+    return token;
+  }
+
+  async function handleAddFriend() {
+    try {
+      const token = await ensureAuthToken();
+      setFriendLoading(true);
+      setFriendError("");
+      const res = await profileApi.addFriend(token, profile.user_id);
+      setFriendshipStatus(res.status || "pending");
+      await refetch();
+    } catch (err) {
+      if (err.message !== "login_required") {
+        console.error("❌ Erro ao enviar convite:", err);
+        setFriendError("Não foi possível enviar o convite.");
+      }
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
+  async function handleRespondFriend(accept) {
+    try {
+      const token = await ensureAuthToken();
+      setFriendLoading(true);
+      setFriendError("");
+      const res = await profileApi.respondFriend(token, profile.user_id, accept);
+      setFriendshipStatus(res.status || (accept ? "friends" : "none"));
+      await refetch();
+    } catch (err) {
+      if (err.message !== "login_required") {
+        console.error("❌ Erro ao atualizar amizade:", err);
+        setFriendError("Não foi possível atualizar a amizade.");
+      }
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
   return (
     <Wrap>
       <Container>
@@ -299,11 +357,6 @@ export default function Profile() {
           <Title>
             {isOwnProfile ? "Seu Perfil" : `Perfil de ${profile.full_name}`}
           </Title>
-          <Subtitle>
-            {isOwnProfile
-              ? "Visualize e gerencie suas informações"
-              : "Conheça melhor este membro"}
-          </Subtitle>
         </PageHeader>
 
         <ProfileCard>
@@ -405,14 +458,54 @@ export default function Profile() {
               Editar Perfil
             </EditButton>
           ) : (
-            <ButtonGroup>
-              <ActionButton onClick={() => console.log("Adicionar amigo")}>
-                Adicionar Amigo
-              </ActionButton>
-              <ActionButton onClick={() => console.log("Enviar mensagem")}>
-                Enviar Mensagem
-              </ActionButton>
-            </ButtonGroup>
+            <>
+              {friendshipStatus === "incoming" ? (
+                <ButtonGroup>
+                  <ActionButton
+                    type="button"
+                    onClick={() => handleRespondFriend(true)}
+                    disabled={friendLoading}
+                  >
+                    Aceitar amizade
+                  </ActionButton>
+                  <ActionButton
+                    type="button"
+                    onClick={() => handleRespondFriend(false)}
+                    disabled={friendLoading}
+                  >
+                    Recusar
+                  </ActionButton>
+                </ButtonGroup>
+              ) : (
+                <ButtonGroup>
+                  <ActionButton
+                    type="button"
+                    onClick={() => {
+                      if (friendshipStatus === "friends") {
+                        handleRespondFriend(false);
+                      } else if (friendshipStatus === "pending") {
+                        handleRespondFriend(false);
+                      } else {
+                        handleAddFriend();
+                      }
+                    }}
+                    disabled={friendLoading}
+                  >
+                    {friendshipStatus === "friends"
+                      ? "Remover amizade"
+                      : friendshipStatus === "pending"
+                        ? "Cancelar convite"
+                        : "Adicionar amigo"}
+                  </ActionButton>
+                  {friendshipStatus === "pending" && (
+                    <Meta>Convite enviado. Aguarde o aceite.</Meta>
+                  )}
+                </ButtonGroup>
+              )}
+              {friendError && (
+                <Meta style={{ color: "#FF3B30" }}>{friendError}</Meta>
+              )}
+            </>
           )}
         </ProfileCard>
       </Container>

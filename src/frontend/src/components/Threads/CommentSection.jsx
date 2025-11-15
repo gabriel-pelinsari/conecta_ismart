@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import Button from "../ui/Button";
 import { Input } from "../ui/TextField";
@@ -33,14 +34,23 @@ const Avatar = styled.img`
   background: ${({ theme }) => theme.colors.outline};
 `;
 
+const AvatarButton = styled.button`
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+`;
+
 const Name = styled.span`
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: ${({ theme }) => theme.colors.text};
 `;
 
 const Meta = styled.div`
-  font-size: 12px;
+  font-size: 10px;
   color: ${({ theme }) => theme.colors.textMuted};
 `;
 
@@ -63,6 +73,7 @@ export default function CommentSection({ threadId, initialTop = [], api }) {
   const [loading, setLoading] = useState(false);
   const [newContent, setNewContent] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
@@ -111,10 +122,20 @@ export default function CommentSection({ threadId, initialTop = [], api }) {
           return (
             <CommentItem key={c.id}>
               <HeaderRow>
-                <Avatar src={photoUrl} alt={displayName} />
+                <AvatarButton
+                  onClick={() => navigate(`/profile/${c.user_id}`)}
+                  aria-label={`Ver perfil de ${displayName}`}
+                >
+                  <Avatar src={photoUrl} alt={displayName} />
+                </AvatarButton>
                 <div>
                   <Name>{displayName}</Name>
-                  <Meta>{author.email || `usuário #${c.user_id}`}</Meta>
+                  <Meta>
+                    {author.university ||
+                      author.course ||
+                      author.email ||
+                      `usuário #${c.user_id}`}
+                  </Meta>
                 </div>
               </HeaderRow>
               <Content>{c.content}</Content>

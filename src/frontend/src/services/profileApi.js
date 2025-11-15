@@ -85,4 +85,25 @@ export const profileApi = {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
+
+  addFriend: async (token, userId) => {
+    const response = await api.post(
+      `/profiles/${userId}/friendship`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  },
+
+  respondFriend: async (token, userId, accept) => {
+    const response = await api.post(
+      `/profiles/${userId}/friendship/respond`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { accept },
+      }
+    );
+    return response.data;
+  },
 };
