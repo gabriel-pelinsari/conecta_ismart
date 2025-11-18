@@ -81,7 +81,7 @@ const TagsRow = styled.div`
 export default function ThreadModal({ initialDescription = "", onClose, onCreate }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState(initialDescription);
-  const [category, setCategory] = useState("geral");
+  const [audience, setAudience] = useState("geral");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState([]);
   const [error, setError] = useState("");
@@ -102,7 +102,7 @@ export default function ThreadModal({ initialDescription = "", onClose, onCreate
 
     setSubmitting(true);
     try {
-      await onCreate({ title, description, category, tags });
+      await onCreate({ title, description, category: audience, tags });
       onClose();
     } catch {
       setError("Falha ao criar thread.");
@@ -139,10 +139,10 @@ export default function ThreadModal({ initialDescription = "", onClose, onCreate
           </Field>
 
           <Field style={{ marginTop: 10 }}>
-            <Label>Categoria</Label>
+            <Label>Tipo de postagem</Label>
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              value={audience}
+              onChange={(e) => setAudience(e.target.value)}
               style={{
                 width: "100%",
                 padding: "10px 12px",
@@ -153,7 +153,7 @@ export default function ThreadModal({ initialDescription = "", onClose, onCreate
               }}
             >
               <option value="geral">Geral</option>
-              <option value="faculdade">Faculdade</option>
+              <option value="faculdade">Faculdade específica</option>
             </select>
           </Field>
 

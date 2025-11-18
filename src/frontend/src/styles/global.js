@@ -2,7 +2,7 @@ import { createGlobalStyle } from "styled-components";
 
 const GlobalStyle = createGlobalStyle`
   :root {
-    color-scheme: dark;
+    color-scheme: ${({ theme }) => theme.scheme};
   }
 
   *, *::before, *::after { box-sizing: border-box; }

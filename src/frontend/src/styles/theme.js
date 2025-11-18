@@ -1,17 +1,5 @@
-const theme = {
-  // Altere só isso pra rebrand
-  colors: {
-    bg: "#0B0B0C",          // fundo app (quase preto — "graphite")
-    surface: "#111113",     // cartões/contêiner
-    text: "#F5F5F7",        // texto principal
-    textMuted: "#B5B8BD",   // texto secundário
-    primary: "#0071E3",     // azul suave (lembra Apple)
-    outline: "#2C2C2E",     // linhas sutis
-    success: "#34C759",
-    danger: "#FF3B30",
-  },
+const sharedScales = {
   fonts: {
-    // San Francisco → cair para system fonts
     sans: `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif`,
   },
   radii: {
@@ -21,22 +9,55 @@ const theme = {
     lg: "18px",
   },
   shadows: {
-    soft: "0 1px 2px rgba(0,0,0,0.2), 0 10px 30px rgba(0,0,0,0.25)",
+    soft: "0 12px 30px rgba(15, 23, 42, 0.06)",
     focus: "0 0 0 3px rgba(0,113,227,0.35)",
   },
   sizes: {
-    containerSmall: "380px",      // Para modais e forms pequenos
-    containerMedium: "900px",     // Para páginas de perfil
-    containerLarge: "1200px",     // Para dashboard e listagens
-    containerWidthDesktop: "75%", // Largura em desktop
-    containerWidthMobile: "90%",  // Largura em mobile
+    containerSmall: "380px",
+    containerMedium: "900px",
+    containerLarge: "1200px",
+    containerWidthDesktop: "75%",
+    containerWidthMobile: "90%",
   },
   breakpoints: {
     mobile: "480px",
     tablet: "768px",
     desktop: "1024px",
     wide: "1440px",
-  }
+  },
 };
 
-export default theme;
+const themes = {
+  dark: {
+    ...sharedScales,
+    scheme: "dark",
+    colors: {
+      bg: "#0B0B0C",
+      surface: "#111113",
+      text: "#F5F5F7",
+      textMuted: "#B5B8BD",
+      primary: "#0071E3",
+      outline: "#2C2C2E",
+      success: "#34C759",
+      danger: "#FF3B30",
+    },
+  },
+  light: {
+    ...sharedScales,
+    scheme: "light",
+    colors: {
+      bg: "#F6F7FB",
+      surface: "#FFFFFF",
+      text: "#1C1C1E",
+      textMuted: "#5F6268",
+      primary: "#0071E3",
+      outline: "#D7DAE5",
+      success: "#2F9C5D",
+      danger: "#D62E2E",
+    },
+  },
+};
+
+export const DEFAULT_THEME = "dark";
+
+export default themes;

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
 import ThreadModal from "./ThreadModal";
+import EventModal from "../Events/EventModal";
+import PollModal from "../Polls/PollModal";
 
 const Bar = styled.div`
   width: 100%;
@@ -27,12 +29,14 @@ const ComposerInput = styled.input`
   background: ${({ theme }) => theme.colors.bg};
   color: ${({ theme }) => theme.colors.text};
   outline: none;
-  transition: border-color .15s ease, box-shadow .15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
-  &::placeholder { color: ${({ theme }) => theme.colors.textMuted}; }
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.textMuted};
+  }
   &:focus {
     border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
   }
 `;
 
@@ -52,7 +56,10 @@ const SearchIcon = styled.span`
   width: 16px;
   height: 16px;
   color: ${({ theme }) => theme.colors.textMuted};
-  & > svg { width: 16px; height: 16px; }
+  & > svg {
+    width: 16px;
+    height: 16px;
+  }
 `;
 
 const SearchInput = styled.input`
@@ -65,15 +72,66 @@ const SearchInput = styled.input`
   font-size: 14px;
 `;
 
-export default function ThreadComposeBar({ onSearch, onCreate }) {
-  const [isOpen, setIsOpen] = useState(false);
+const ComposerColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const ActionButton = styled.button`
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 12px;
+  border-radius: ${({ theme }) => theme.radii.md};
+  border: 1px solid ${({ theme }) => theme.colors.outline};
+  background: ${({ theme }) => theme.colors.bg};
+  color: ${({ theme }) => theme.colors.text};
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.08s ease;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.surface};
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+`;
+
+const PrimaryAction = styled(ActionButton)`
+  background: ${({ theme }) => theme.colors.primary};
+  border-color: ${({ theme }) => theme.colors.primary};
+  color: ${({ theme }) => theme.colors.bg};
+  font-size: 14px;
+
+  &:hover {
+    filter: brightness(1.05);
+  }
+`;
+
+export default function ThreadComposeBar({
+  onSearch,
+  onCreate,
+  onCreateThread,
+  onCreateEvent,
+  onCreatePoll,
+}) {
+  const [activeModal, setActiveModal] = useState(null);
   const [draft, setDraft] = useState("");
 
   // abre o modal ao pressionar Enter no composer
   function handleComposerKeyDown(e) {
     if (e.key === "Enter" && draft.trim().length > 0) {
       e.preventDefault();
-      setIsOpen(true);
+      setActiveModal("thread");
     }
   }
 
@@ -84,43 +142,74 @@ export default function ThreadComposeBar({ onSearch, onCreate }) {
   // foca o textarea do modal ao abrir
   const firstOpenRef = useRef(false);
   useEffect(() => {
-    if (isOpen && !firstOpenRef.current) firstOpenRef.current = true;
-  }, [isOpen]);
+    if (activeModal && !firstOpenRef.current) firstOpenRef.current = true;
+  }, [activeModal]);
+
+  const createThreadHandler = onCreateThread ?? onCreate;
+  const closeModal = () => setActiveModal(null);
 
   return (
     <>
       <Bar>
-        <ComposerInput
-          placeholder="Compartilhe uma dúvida ou comece uma conversa…"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onFocus={() => setIsOpen(true)}
-          onKeyDown={handleComposerKeyDown}
-          aria-label="Criar nova thread"
-        />
+        <ComposerColumn>
+          <ActionButtons aria-label="Tipos de publicações disponíveis">
+            <PrimaryAction type="button" onClick={() => setActiveModal("thread")}>
+              + Thread
+            </PrimaryAction>
+            <ActionButton type="button" onClick={() => setActiveModal("event")}>
+              + Evento
+            </ActionButton>
+            <ActionButton type="button" onClick={() => setActiveModal("poll")}>
+              + Enquete
+            </ActionButton>
+          </ActionButtons>
+        </ComposerColumn>
 
-        <SearchBox aria-label="Buscar threads">
+        <SearchBox aria-label="Buscar postagem">
           <SearchIcon>
             <svg viewBox="0 0 24 24" fill="none">
-              <path d="M21 21l-4.2-4.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+              <path
+                d="M21 21l-4.2-4.2"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
             </svg>
           </SearchIcon>
           <SearchInput
             type="search"
-            placeholder="Buscar por título…"
+            placeholder="Buscar por título..."
             onChange={handleSearch}
           />
         </SearchBox>
       </Bar>
 
-      {isOpen && (
+      {activeModal === "thread" && (
         <ThreadModal
           initialDescription={draft}
-          onClose={() => setIsOpen(false)}
+          onClose={closeModal}
           onCreate={async (payload) => {
-            await onCreate?.(payload);
+            await createThreadHandler?.(payload);
             setDraft("");
+          }}
+        />
+      )}
+
+      {activeModal === "event" && (
+        <EventModal
+          onClose={closeModal}
+          onCreate={async (payload) => {
+            await onCreateEvent?.(payload);
+          }}
+        />
+      )}
+
+      {activeModal === "poll" && (
+        <PollModal
+          onClose={closeModal}
+          onCreate={async (payload) => {
+            await onCreatePoll?.(payload);
           }}
         />
       )}

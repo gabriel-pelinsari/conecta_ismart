@@ -1,6 +1,18 @@
+import { useState } from "react";
 import styled from "styled-components";
-import { Link, useLocation } from "react-router-dom";
-import { FiHome, FiUser, FiBell, FiLogOut } from "react-icons/fi";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  FiHome,
+  FiUser,
+  FiBell,
+  FiLogOut,
+  FiMoon,
+  FiSun,
+  FiSearch,
+  FiShield,
+  FiPieChart,
+} from "react-icons/fi";
+import ProfileSearchModal from "./ProfileSearchModal";
 
 const Bar = styled.nav`
   position: sticky;
@@ -51,7 +63,7 @@ const StyledLink = styled(Link)`
   `}
 `;
 
-const LogoutButton = styled.button`
+const IconButton = styled.button`
   background: none;
   border: none;
   color: ${({ theme }) => theme.colors.textMuted};
@@ -62,13 +74,39 @@ const LogoutButton = styled.button`
   transition: color 0.15s ease, transform 0.1s ease;
 
   &:hover {
-    color: ${({ theme }) => theme.colors.danger};
     transform: translateY(-1px);
   }
 `;
 
-export default function NavBar({ role, logout }) {
+const ThemeToggleButton = styled(IconButton)`
+  border-left: 1px solid ${({ theme }) => theme.colors.outline};
+  padding-left: 24px;
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
+const SearchButton = styled(IconButton)`
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
+const LogoutButton = styled(IconButton)`
+  &:hover {
+    color: ${({ theme }) => theme.colors.danger};
+  }
+`;
+
+export default function NavBar({ role, logout, themeName = "dark", onToggleTheme }) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  function handleProfileSelect(userId) {
+    if (!userId) return;
+    navigate(`/profile/${userId}`);
+  }
 
   return (
     <Bar>
@@ -85,15 +123,6 @@ export default function NavBar({ role, logout }) {
         </StyledLink>
 
         <StyledLink
-          to="/profile"
-          title="Perfil"
-          aria-label="Perfil"
-          $active={pathname === "/profile"}
-        >
-          <FiUser />
-        </StyledLink>
-
-        <StyledLink
           to="/notifications"
           title="Notificações"
           aria-label="Notificações"
@@ -102,21 +131,68 @@ export default function NavBar({ role, logout }) {
           <FiBell />
         </StyledLink>
 
+        <StyledLink
+          to="/profile"
+          title="Perfil"
+          aria-label="Perfil"
+          $active={pathname === "/profile"}
+        >
+          <FiUser />
+        </StyledLink>
+
         {role === "admin" && (
-          <StyledLink
-            to="/admin"
-            title="Admin"
-            aria-label="Admin"
-            $active={pathname === "/admin"}
+          <>
+            <StyledLink
+              to="/admin/dashboard"
+              title="Dashboard administrativo"
+              aria-label="Dashboard administrativo"
+              $active={pathname === "/admin/dashboard"}
+            >
+              <FiPieChart />
+            </StyledLink>
+            <StyledLink
+              to="/admin"
+              title="Admin"
+              aria-label="Admin"
+              $active={pathname === "/admin"}
+            >
+              <FiShield />
+            </StyledLink>
+          </>
+        )}
+
+
+        <SearchButton
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          title="Buscar perfis por nickname"
+          aria-label="Buscar perfis por nickname"
+        >
+          <FiSearch />
+        </SearchButton>
+
+        {onToggleTheme && (
+          <ThemeToggleButton
+            type="button"
+            onClick={onToggleTheme}
+            title={themeName === "light" ? "Ativar modo escuro" : "Ativar modo claro"}
+            aria-label={themeName === "light" ? "Ativar modo escuro" : "Ativar modo claro"}
           >
-            🛠
-          </StyledLink>
+            {themeName === "light" ? <FiMoon /> : <FiSun />}
+          </ThemeToggleButton>
         )}
 
         <LogoutButton onClick={logout} title="Sair" aria-label="Sair">
           <FiLogOut />
         </LogoutButton>
       </NavLinks>
+
+      {searchOpen && (
+        <ProfileSearchModal
+          onClose={() => setSearchOpen(false)}
+          onSelectProfile={handleProfileSelect}
+        />
+      )}
     </Bar>
   );
 }

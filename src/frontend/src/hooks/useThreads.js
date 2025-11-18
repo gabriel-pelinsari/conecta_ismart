@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { threadApi } from "../services/threadApi";
 import { profileApi } from "../services/profileApi";
+import { feedApi } from "../services/feedApi";
+import { eventApi } from "../services/eventApi";
+import { pollApi } from "../services/pollApi";
 
 // pega universidade do perfil salvo em memória? por simplicidade,
 // lemos do token e deixamos o componente decidir passar `university` quando precisar.
@@ -67,12 +70,13 @@ export default function useThreads() {
         filters.university = userUniversity;
       }
 
-      const res = await threadApi.list(filters);
+      const res = await feedApi.list(filters);
+      const normalized = res.map(normalizeFeedItem);
 
-      const nextItems = reset ? res : [...items, ...res];
+      const nextItems = reset ? normalized : [...items, ...normalized];
       setItems(nextItems);
-      setSkip(reset ? res.length : skip + res.length);
-      setHasMore(res.length === pageSize);
+      setSkip(reset ? normalized.length : skip + normalized.length);
+      setHasMore(normalized.length === pageSize);
     } catch (e) {
       console.error(e);
       setError("Erro ao carregar threads");
@@ -115,16 +119,31 @@ export default function useThreads() {
   // criar
   async function createThread(payload) {
     const created = await threadApi.create(payload);
+    const normalized = normalizeFeedItem({ type: "thread", ...created });
     // prepend no feed
-    setItems((prev) => [created, ...prev]);
-    return created;
+    setItems((prev) => [normalized, ...prev]);
+    return normalized;
+  }
+
+  async function createEvent(payload) {
+    const created = await eventApi.create(payload);
+    const normalized = normalizeFeedItem({ type: "event", ...created });
+    setItems((prev) => [normalized, ...prev]);
+    return normalized;
+  }
+
+  async function createPoll(payload) {
+    const created = await pollApi.create(payload);
+    const normalized = normalizeFeedItem({ type: "poll", ...created });
+    setItems((prev) => [normalized, ...prev]);
+    return normalized;
   }
 
   // votar
   async function vote(threadId, value) {
     setItems((prev) =>
       prev.map((t) => {
-        if (t.id !== threadId) return t;
+        if (t.type !== "thread" || t.id !== threadId) return t;
 
         const previous = t.user_vote ?? 0; // voto anterior do usuário
         let newUp = t.upvotes ?? 0;
@@ -166,7 +185,9 @@ export default function useThreads() {
   async function report(threadId) {
     await threadApi.report(threadId);
     setItems((prev) =>
-      prev.map((t) => (t.id === threadId ? { ...t, is_reported: true } : t))
+      prev.map((t) =>
+        t.type === "thread" && t.id === threadId ? { ...t, is_reported: true } : t
+      )
     );
   }
 
@@ -181,6 +202,18 @@ export default function useThreads() {
     return comment;
   }
 
+  async function deleteThread(threadId) {
+    try {
+      await threadApi.remove(threadId);
+      setItems((prev) =>
+        prev.filter((t) => !(t.type === "thread" && t.id === threadId))
+      );
+    } catch (e) {
+      console.error("Erro ao excluir thread", e);
+      throw e;
+    }
+  }
+
   return {
     items,
     hasMore,
@@ -191,12 +224,29 @@ export default function useThreads() {
     loadMore: () => load(false),
     reload: () => load(true),
     createThread,
+    createEvent,
+    createPoll,
     vote,
     report,
     fetchComments,
     addComment,
+    deleteThread,
     currentUser,
     userUniversity,
     universityLoaded,
   };
+}
+
+function normalizeFeedItem(item) {
+  if (!item) return item;
+  const type =
+    item.type ||
+    (item.thread ? "thread" : item.event ? "event" : item.poll ? "poll" : "thread");
+
+  if (item[type]) {
+    return { type, ...item[type] };
+  }
+
+  const { thread, event, poll, ...rest } = item;
+  return { type, ...rest };
 }
