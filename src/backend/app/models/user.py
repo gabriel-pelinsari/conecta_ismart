@@ -50,6 +50,8 @@ class UserStats(Base):
     total_votes_received = Column(Integer, default=0)
     total_friendships = Column(Integer, default=0)
     badges_count = Column(Integer, default=0)
+    points = Column(Integer, default=0)  # Pontos de gamificação
+    level = Column(String(50), default="Novato")  # Nível do usuário
     created_at = Column(DateTime(timezone=False), server_default=func.now())
 
     user = relationship("User", back_populates="stats")

@@ -7,6 +7,7 @@ from app.models.user import User
 from app.models.profile import Profile
 from app.models.thread import Thread, Comment, ThreadVote, CommentVote
 from app.schemas.thread import ThreadCreate, ThreadOut, CommentCreate, CommentOut, VoteIn, AuthorOut
+from app.services.gamification import GamificationService
 
 router = APIRouter(prefix="/api/threads", tags=["Threads"])
 
@@ -28,6 +29,17 @@ def create_thread(data: ThreadCreate, db: Session = Depends(get_db), user: User 
     db.add(thread)
     db.commit()
     db.refresh(thread)
+
+    # Atribuir +10 pontos por criar thread
+    GamificationService.award_points(
+        db=db,
+        user_id=user.id,
+        action_type="create_thread",
+        reference_id=thread.id,
+        reference_type="thread",
+        description=f"Criou a thread: {thread.title}"
+    )
+
     return enrich_thread(thread, db, user.id)
 
 # === Buscar Threads com Filtros e Paginação ===
@@ -83,6 +95,17 @@ def create_comment(thread_id: int, data: CommentCreate, db: Session = Depends(ge
     db.add(comment)
     db.commit()
     db.refresh(comment)
+
+    # Atribuir +5 pontos por comentar
+    GamificationService.award_points(
+        db=db,
+        user_id=user.id,
+        action_type="create_comment",
+        reference_id=comment.id,
+        reference_type="comment",
+        description=f"Comentou na thread: {thread.title}"
+    )
+
     return enrich_comment(comment, db)
 
 # === Listar comentários de uma thread ===
