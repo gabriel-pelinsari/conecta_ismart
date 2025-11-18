@@ -1,6 +1,8 @@
+import { useState } from "react";
 import styled from "styled-components";
 import { FiMapPin, FiCalendar, FiUsers } from "react-icons/fi";
 import Card from "../ui/Card";
+import Button from "../ui/Button";
 
 const Wrap = styled(Card)`
   width: 100%;
@@ -81,7 +83,28 @@ const Creator = styled.p`
   color: ${({ theme }) => theme.colors.textMuted};
 `;
 
-export default function EventCard({ event }) {
+const RSVPRow = styled.div`
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+`;
+
+const RSVPButton = styled(Button)`
+  flex: 1;
+  min-width: 140px;
+  justify-content: center;
+`;
+
+const RSVPStatus = styled.span`
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.textMuted};
+`;
+
+export default function EventCard({ event, onRsvp }) {
+  const [pending, setPending] = useState(false);
   if (!event) return null;
 
   const {
@@ -100,6 +123,7 @@ export default function EventCard({ event }) {
     comment,
     photo_url,
     photo,
+    user_rsvp_status,
   } = event;
 
   const coverImage = photo_url || photo;
@@ -122,6 +146,18 @@ export default function EventCard({ event }) {
     0;
   const creatorName =
     creator?.nickname || creator?.full_name || creator?.name || "Organizador";
+
+  async function handleRsvp(status) {
+    if (!onRsvp || pending) return;
+    setPending(true);
+    try {
+      await onRsvp(event.id, status);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <Wrap>
@@ -159,6 +195,43 @@ export default function EventCard({ event }) {
       )}
 
       <Creator>Organizado por {creatorName}</Creator>
+
+      <RSVPRow>
+        <RSVPButton
+          type="button"
+          onClick={() => handleRsvp("confirmed")}
+          disabled={pending}
+          style={
+            user_rsvp_status === "confirmed"
+              ? { background: "rgba(0,113,227,0.2)", borderColor: "#0071e3" }
+              : undefined
+          }
+        >
+          Confirmar presença
+        </RSVPButton>
+        <RSVPButton
+          type="button"
+          onClick={() => handleRsvp("maybe")}
+          disabled={pending}
+          style={
+            user_rsvp_status === "maybe"
+              ? { background: "rgba(255,159,10,0.2)", borderColor: "#ff9f0a" }
+              : undefined
+          }
+        >
+          Talvez
+        </RSVPButton>
+        <RSVPButton
+          type="button"
+          onClick={() => handleRsvp("declined")}
+          disabled={pending}
+        >
+          Cancelar
+        </RSVPButton>
+      </RSVPRow>
+      {user_rsvp_status && (
+        <RSVPStatus>Você respondeu: {user_rsvp_status}</RSVPStatus>
+      )}
     </Wrap>
   );
 }

@@ -1,17 +1,30 @@
-from sqlalchemy import Column, Integer, ForeignKey, DateTime, func, Text
+from sqlalchemy import (
+    Column,
+    Integer,
+    ForeignKey,
+    DateTime,
+    func,
+    Text,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
+
 from app.db.base import Base
 from app.models.user import User
-from sqlalchemy import String
+
 
 class Friendship(Base):
     __tablename__ = "friendships"
 
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    friend_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    status = Column(String(20), default="pending", nullable=False)
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    friend_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(20), server_default="pending", nullable=False)
     created_at = Column(DateTime(timezone=False), server_default=func.now())
     updated_at = Column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint("user_id", "friend_id", name="unique_friendship_pair"),)
 
     user = relationship("User", foreign_keys=[user_id], back_populates="friendships")
     friend = relationship("User", foreign_keys=[friend_id], back_populates="friends")
@@ -38,25 +51,29 @@ class UserInterest(Base):
 
 class UniversityGroup(Base):
     """RF052 - Grupos automáticos por universidade"""
+
     __tablename__ = "university_groups"
 
     id = Column(Integer, primary_key=True, index=True)
-    university_name = Column(String(100), unique=True, nullable=False, index=True)
-    name = Column(String(200), nullable=False)  # Ex: "USP - Comunidade ISMART"
+    name = Column(String(255), unique=True, nullable=False)
+    university_name = Column("university", String(100), nullable=False)
     description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=False), server_default=func.now())
-    updated_at = Column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now())
 
     members = relationship("UniversityGroupMember", back_populates="group", cascade="all, delete-orphan")
 
 
 class UniversityGroupMember(Base):
     """Membros dos grupos de universidade"""
+
     __tablename__ = "university_group_members"
 
-    group_id = Column(Integer, ForeignKey("university_groups.id", ondelete="CASCADE"), primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("university_groups.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     joined_at = Column(DateTime(timezone=False), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("group_id", "user_id", name="unique_group_member"),)
 
     group = relationship("UniversityGroup", back_populates="members")
     user = relationship("User")

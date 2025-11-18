@@ -1,3 +1,4 @@
+import { useState } from "react";
 import styled from "styled-components";
 import Card from "../ui/Card";
 
@@ -26,11 +27,18 @@ const OptionsList = styled.div`
   gap: 10px;
 `;
 
-const Option = styled.div`
-  background: ${({ theme }) => theme.colors.surfaceAlt || theme.colors.surface};
-  border: 1px solid ${({ theme }) => theme.colors.outline};
-  border-radius: ${({ theme }) => theme.radii.md};
+const Option = styled.button`
+  width: 100%;
   padding: 10px 12px;
+  border-radius: ${({ theme }) => theme.radii.md};
+  border: 1px solid
+    ${({ theme, $selected }) => ($selected ? theme.colors.primary : theme.colors.outline)};
+  background: ${({ theme, $selected }) =>
+    $selected ? `${theme.colors.primary}22` : theme.colors.surfaceAlt || theme.colors.surface};
+  text-align: left;
+  cursor: pointer;
+  opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
+  transition: border-color 0.15s ease, background 0.15s ease;
 `;
 
 const OptionLabel = styled.div`
@@ -75,7 +83,13 @@ const Badge = styled.span`
   font-weight: 600;
 `;
 
-export default function PollCard({ poll }) {
+const VoteNote = styled.span`
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.primary};
+`;
+
+export default function PollCard({ poll, onVote }) {
+  const [pending, setPending] = useState(false);
   if (!poll) return null;
 
   const {
@@ -86,6 +100,7 @@ export default function PollCard({ poll }) {
     type,
     creator,
     votes,
+    user_vote,
   } = poll;
 
   const normalizedOptions = options.map((option) => {
@@ -112,6 +127,17 @@ export default function PollCard({ poll }) {
       ? "Faculdade específica"
       : "Geral";
 
+  async function handleVote(optionLabel) {
+    if (!onVote || pending) return;
+    const nextChoice = user_vote === optionLabel ? null : optionLabel;
+    setPending(true);
+    try {
+      await onVote(poll.id, nextChoice);
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <Wrap>
       <Title>{title}</Title>
@@ -122,11 +148,21 @@ export default function PollCard({ poll }) {
           const percentage = totalVotes
             ? Math.round((option.votes / totalVotes) * 100)
             : 0;
+          const selected = user_vote === option.label;
           return (
-            <Option key={option.label}>
+            <Option
+              key={option.label}
+              type="button"
+              onClick={() => handleVote(option.label)}
+              disabled={pending || !onVote}
+              $selected={selected}
+              aria-pressed={selected}
+            >
               <OptionLabel>
                 <span>{option.label}</span>
-                <span>{option.votes} voto{option.votes === 1 ? "" : "s"}</span>
+                <span>
+                  {option.votes} voto{option.votes === 1 ? "" : "s"}
+                </span>
               </OptionLabel>
               <Progress aria-hidden="true">
                 <ProgressFill $value={percentage} />
@@ -138,7 +174,13 @@ export default function PollCard({ poll }) {
 
       <Footer>
         <span>
-          {totalVotes} voto{totalVotes === 1 ? "" : "s"} • Criado por {creatorName}
+          {totalVotes} voto{totalVotes === 1 ? "" : "s"} — Criado por {creatorName}
+          {user_vote && (
+            <>
+              {" "}
+              • <VoteNote>Seu voto: {user_vote}</VoteNote>
+            </>
+          )}
         </span>
         <Badge>{scopeLabel}</Badge>
       </Footer>

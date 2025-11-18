@@ -89,12 +89,6 @@ class EventService:
         Args:
             status: 'confirmed', 'maybe', 'declined'
         """
-        # Verificar se pode entrar
-        can_join, reason = EventService.can_user_join(db, event_id, user_id)
-
-        if not can_join and status != "declined":
-            raise ValueError(reason)
-
         # Verificar se já existe registro
         existing = (
             db.query(EventParticipant)
@@ -104,6 +98,18 @@ class EventService:
             )
             .first()
         )
+
+        # Verificar se pode entrar
+        can_join, reason = EventService.can_user_join(db, event_id, user_id)
+
+        if not can_join:
+            reason_lower = reason.lower()
+            if existing:
+                blocked_keywords = ["cancelado", "não encontrado", "nao encontrado", "iniciado"]
+                if any(keyword in reason_lower for keyword in blocked_keywords):
+                    raise ValueError(reason)
+            elif status != "declined":
+                raise ValueError(reason)
 
         if existing:
             # Atualizar status

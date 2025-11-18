@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     # === ADMIN CONFIG ===
     ADMIN_VERIFICATION_CODE: str = "ADMIN123456"
+    ADMIN_MASTER_PASSWORD: str = "123456"
 
     @property
     def DATABASE_URL(self):

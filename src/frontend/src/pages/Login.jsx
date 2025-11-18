@@ -159,7 +159,8 @@ export default function Login({ setAuth }) {
 
       // ✅ DECODIFICAR TOKEN PARA PEGAR ROLE
       const payload = decodeJWT(token);
-      const role = payload?.role || "student";
+      const isAdmin = payload?.role === "admin" || payload?.is_admin === true;
+      const role = isAdmin ? "admin" : "student";
 
       console.log(`✅ Login bem-sucedido: role=${role}`);
 

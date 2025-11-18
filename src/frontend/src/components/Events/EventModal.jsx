@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import Button from "../ui/Button";
 import { Field, Input, Label } from "../ui/TextField";
@@ -109,6 +109,36 @@ const HiddenInput = styled.input`
   display: none;
 `;
 
+const Preview = styled.div`
+  margin-top: 12px;
+  border: 1px solid ${({ theme }) => theme.colors.outline};
+  border-radius: ${({ theme }) => theme.radii.md};
+  overflow: hidden;
+  max-height: 220px;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+`;
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Não foi possível ler o arquivo."));
+      }
+    };
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function EventModal({ onClose, onCreate }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -117,18 +147,48 @@ export default function EventModal({ onClose, onCreate }) {
   const [audience, setAudience] = useState("geral");
   const [comment, setComment] = useState("");
   const [photo, setPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoDataUrl, setPhotoDataUrl] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   function close() {
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+      setPhotoPreview(null);
+    }
+    setPhoto(null);
+    setPhotoDataUrl(null);
     onClose?.();
   }
 
+  useEffect(() => {
+    return () => {
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
   function handleFileChange(e) {
     const file = e.target.files?.[0];
-    if (file) {
-      setPhoto(file);
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+      setPhotoPreview(null);
     }
+    if (!file) {
+      setPhoto(null);
+      setPhotoDataUrl(null);
+      return;
+    }
+
+    setPhoto(file);
+    const objectUrl = URL.createObjectURL(file);
+    setPhotoPreview(objectUrl);
+
+    fileToDataUrl(file)
+      .then((result) => setPhotoDataUrl(result))
+      .catch(() => setPhotoDataUrl(null));
   }
 
   async function handleSubmit(e) {
@@ -141,6 +201,12 @@ export default function EventModal({ onClose, onCreate }) {
 
     setSubmitting(true);
     try {
+      let coverData = photoDataUrl;
+      if (photo && !coverData) {
+        coverData = await fileToDataUrl(photo);
+        setPhotoDataUrl(coverData);
+      }
+
       await onCreate?.({
         title,
         description,
@@ -149,11 +215,12 @@ export default function EventModal({ onClose, onCreate }) {
         audience,
         comment,
         photo,
+        photo_data_url: coverData,
       });
       close();
     } catch (err) {
       console.error(err);
-      setError("Não foi possível criar o evento.");
+      setError(err?.message || "Não foi possível criar o evento.");
     } finally {
       setSubmitting(false);
     }
@@ -164,7 +231,7 @@ export default function EventModal({ onClose, onCreate }) {
       <Modal onClick={(e) => e.stopPropagation()}>
         <Header>
           <Title>Novo evento</Title>
-          <CloseBtn onClick={close}>×</CloseBtn>
+          <CloseBtn onClick={close} aria-label="Fechar">×</CloseBtn>
         </Header>
 
         <form onSubmit={handleSubmit}>
@@ -228,6 +295,11 @@ export default function EventModal({ onClose, onCreate }) {
               {photo ? photo.name : "Clique para selecionar a foto (JPEG/PNG)"}
               <HiddenInput type="file" accept="image/*" onChange={handleFileChange} />
             </FileLabel>
+            {photoPreview && (
+              <Preview>
+                <img src={photoPreview} alt="Prévia do evento" />
+              </Preview>
+            )}
           </Field>
 
           {error && <ErrorText>{error}</ErrorText>}

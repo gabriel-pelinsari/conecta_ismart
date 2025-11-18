@@ -13,6 +13,14 @@ const StatCard = styled.div`
   border-radius: ${({ theme }) => theme.radii.md};
   padding: 16px;
   text-align: center;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    padding: 4px;
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    padding: 4px;
+  }
 `;
 
 const StatValue = styled.div`
@@ -20,6 +28,14 @@ const StatValue = styled.div`
   font-weight: 700;
   color: ${({ theme }) => theme.colors.primary};
   margin-bottom: 4px;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    font-size: 22px;
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    font-size: 22px;
+  }
 `;
 
 const StatLabel = styled.div`

@@ -7,7 +7,7 @@ from app.models.user import User
 from app.models.social import Interest, UserInterest
 from app.schemas.interest import InterestOut, InterestCreate, UserInterestsOut
 
-router = APIRouter(prefix="/api/interests", tags=["interests"])
+router = APIRouter(prefix="/interests", tags=["interests"])
 
 @router.get("/", response_model=List[InterestOut])
 def list_all_interests(db: Session = Depends(get_db)):

@@ -1,5 +1,4 @@
 import api from "../api/axios";
-import mockProfiles from "../mocks/profiles";
 
 export const profileApi = {
   /**
@@ -136,14 +135,20 @@ export const profileApi = {
   },
 
   searchByNickname: async (nickname) => {
-    if (!nickname) return [];
-    const term = nickname.toLowerCase();
-    const results = mockProfiles.filter((profile) =>
-      profile.nickname.toLowerCase().includes(term)
-    );
+    const term = nickname?.trim();
+    if (!term || term.length < 2) return [];
 
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(results), 200);
+    const token = localStorage.getItem("token");
+    const params = new URLSearchParams();
+    params.set("search_name", term);
+    params.set("limit", "10");
+    params.set("offset", "0");
+    params.set("order_by", "name");
+
+    const { data } = await api.get(`/api/students/explore?${params.toString()}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
+
+    return data?.students ?? [];
   },
 };

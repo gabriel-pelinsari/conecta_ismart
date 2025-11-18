@@ -52,6 +52,7 @@ def test_upload_csv_valid(client, admin_user, auth_headers):
     data = response.json()
     assert data["created_count"] == 2
     assert len(data["created_users"]) == 2
+    assert all("verification_code" in item for item in data["created_users"])
 
 def test_upload_csv_invalid_format(client, auth_headers):
     """Teste: Upload de arquivo não-CSV"""

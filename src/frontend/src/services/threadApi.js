@@ -2,30 +2,29 @@ import api from "../api/axios";
 
 function auth() {
   const token = localStorage.getItem("token");
-  return { Authorization: `Bearer ${token}` };
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function buildQuery(params = {}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    searchParams.set(key, String(value));
+  });
+  return searchParams.toString();
 }
 
 export const threadApi = {
-  comments: async (threadId) => {
-    const res = await api.get(`/threads/${threadId}/comments`);
-    return res.data;
-  },
-
-  addComment: async (threadId, content) => {
-    const res = await api.post(`/threads/${threadId}/comments`, { content });
-    return res.data;
-  },
-
-  async list({ skip = 0, limit = 20, search = "", category, university, tag }) {
-    const params = new URLSearchParams();
-    params.set("skip", String(skip));
-    params.set("limit", String(limit));
-    if (search) params.set("search", search);
-    if (category && category !== "todos") params.set("category", category);
-    if (university) params.set("university", university);
-    if (tag) params.set("tag", tag); 
-
-    const { data } = await api.get(`/threads?${params.toString()}`, {
+  async list({ skip = 0, limit = 20, search, category, university, tag } = {}) {
+    const query = buildQuery({
+      skip,
+      limit,
+      search,
+      category,
+      university,
+      tag,
+    });
+    const { data } = await api.get(`/api/threads/?${query}`, {
       headers: auth(),
     });
     return data;
@@ -33,7 +32,7 @@ export const threadApi = {
 
   async create({ title, description, category, tags }) {
     const { data } = await api.post(
-      "/threads/",
+      "/api/threads/",
       { title, description, category, tags },
       { headers: auth() }
     );
@@ -42,7 +41,7 @@ export const threadApi = {
 
   async vote(threadId, value) {
     const { data } = await api.post(
-      `/threads/${threadId}/vote`,
+      `/api/threads/${threadId}/vote`,
       { value },
       { headers: auth() }
     );
@@ -51,40 +50,38 @@ export const threadApi = {
 
   async report(threadId) {
     const { data } = await api.post(
-      `/threads/${threadId}/report`,
+      `/api/threads/${threadId}/report`,
       {},
       { headers: auth() }
     );
     return data;
   },
 
+  async remove(threadId) {
+    await api.delete(`/api/threads/${threadId}/`, { headers: auth() });
+  },
+
   async comments(threadId, { skip = 0, limit = 50 } = {}) {
-    const params = new URLSearchParams();
-    params.set("skip", String(skip));
-    params.set("limit", String(limit));
+    const query = buildQuery({ skip, limit });
     const { data } = await api.get(
-      `/threads/${threadId}/comments?${params.toString()}`,
+      `/api/threads/${threadId}/comments/?${query}`,
       { headers: auth() }
     );
-    return data; // CommentOut[]
+    return data;
   },
 
   async addComment(threadId, content) {
     const { data } = await api.post(
-      `/threads/${threadId}/comments`,
+      `/api/threads/${threadId}/comments/`,
       { content },
       { headers: auth() }
     );
-    return data; // CommentOut
-  },
-
-  async remove(threadId) {
-    await api.delete(`/threads/${threadId}`, { headers: auth() });
+    return data;
   },
 
   async voteComment(commentId, value) {
     const { data } = await api.post(
-      `/threads/comments/${commentId}/vote`,
+      `/api/threads/comments/${commentId}/vote`,
       { value },
       { headers: auth() }
     );

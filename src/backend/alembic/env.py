@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Importa todos os modelos usados
-from app.models import user, profile, social, gamification
+from app.models import user, profile, social, gamification, poll
 from app.models.thread import Thread, Comment, ThreadVote, CommentVote
 
 # Define metadata

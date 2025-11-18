@@ -23,7 +23,7 @@ from app.services.university_groups import UniversityGroupService
 # === LOGGING ===
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/profiles", tags=["profiles"])
+router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 MEDIA_DIR = os.path.join(os.getcwd(), "media", "avatars")
 os.makedirs(MEDIA_DIR, exist_ok=True)

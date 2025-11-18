@@ -4,6 +4,8 @@ import { profileApi } from "../services/profileApi";
 import { feedApi } from "../services/feedApi";
 import { eventApi } from "../services/eventApi";
 import { pollApi } from "../services/pollApi";
+import { saveEventCover } from "../services/eventCoverStore";
+import { saveLocalEvent } from "../services/eventLocalStore";
 
 // pega universidade do perfil salvo em memória? por simplicidade,
 // lemos do token e deixamos o componente decidir passar `university` quando precisar.
@@ -60,26 +62,24 @@ export default function useThreads() {
         skip: reset ? 0 : skip,
         limit: pageSize,
         search,
+        category,
+        university: facultyScope ? userUniversity : undefined,
       };
 
-      if (!facultyScope) {
-        filters.category = category;
-      }
-
-      if (facultyScope && userUniversity) {
-        filters.university = userUniversity;
-      }
-
-      const res = await feedApi.list(filters);
-      const normalized = res.map(normalizeFeedItem);
+      const response = await feedApi.list(filters);
+      const normalized = response.items.map(normalizeFeedItem);
+      const threadsCount =
+        typeof response.threadsCount === "number"
+          ? response.threadsCount
+          : normalized.filter((item) => item.type === "thread").length;
 
       const nextItems = reset ? normalized : [...items, ...normalized];
       setItems(nextItems);
-      setSkip(reset ? normalized.length : skip + normalized.length);
-      setHasMore(normalized.length === pageSize);
+      setSkip(reset ? threadsCount : skip + threadsCount);
+      setHasMore(threadsCount === pageSize);
     } catch (e) {
       console.error(e);
-      setError("Erro ao carregar threads");
+      setError("Erro ao carregar publica��es");
     } finally {
       setLoading(false);
     }
@@ -126,7 +126,55 @@ export default function useThreads() {
   }
 
   async function createEvent(payload) {
-    const created = await eventApi.create(payload);
+    if (!payload?.scheduled_at) {
+      throw new Error("Informe a data e o horário do evento.");
+    }
+    const wantsFacultyScope = payload.audience === "faculdade";
+    if (wantsFacultyScope && !userUniversity) {
+      throw new Error(
+        "Atualize seu perfil com a universidade para criar eventos da sua faculdade."
+      );
+    }
+
+    const startDate = new Date(payload.scheduled_at);
+    if (Number.isNaN(startDate.getTime())) {
+      throw new Error("Data do evento inválida.");
+    }
+
+    const endDate = payload.end_datetime
+      ? new Date(payload.end_datetime)
+      : new Date(startDate.getTime() + (payload.duration_hours || 2) * 60 * 60 * 1000);
+
+    const description = payload.comment
+      ? [payload.description, `Observação: ${payload.comment}`]
+          .filter(Boolean)
+          .join("\n\n")
+      : payload.description;
+
+    const requestBody = {
+      title: payload.title,
+      description,
+      event_type: payload.event_type || "meetup",
+      start_datetime: startDate.toISOString(),
+      end_datetime: endDate.toISOString(),
+      location: payload.location,
+      is_online: Boolean(payload.is_online) || false,
+      online_link: payload.online_link || null,
+      university: wantsFacultyScope ? userUniversity : payload.university || null,
+      max_participants: payload.max_participants
+        ? Number(payload.max_participants)
+        : undefined,
+    };
+
+    const created = await eventApi.create(requestBody);
+    if (payload.photo_data_url) {
+      saveEventCover(created.id, payload.photo_data_url);
+      created.photo_url = payload.photo_data_url;
+    }
+    saveLocalEvent({
+      ...created,
+      photo_url: created.photo_url || payload.photo_data_url || null,
+    });
     const normalized = normalizeFeedItem({ type: "event", ...created });
     setItems((prev) => [normalized, ...prev]);
     return normalized;
@@ -214,6 +262,67 @@ export default function useThreads() {
     }
   }
 
+  async function rsvpEvent(eventId, status) {
+    if (!eventId || !status) return;
+    let previousStatus = null;
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.type !== "event" || item.id !== eventId) return item;
+        previousStatus = item.user_rsvp_status || null;
+        let confirmed = item.confirmed_count || 0;
+        if (previousStatus === "confirmed" && status !== "confirmed") {
+          confirmed = Math.max(0, confirmed - 1);
+        } else if (status === "confirmed" && previousStatus !== "confirmed") {
+          confirmed += 1;
+        }
+        return {
+          ...item,
+          user_rsvp_status: status,
+          confirmed_count: confirmed,
+        };
+      })
+    );
+
+    try {
+      await eventApi.rsvp(eventId, status);
+    } catch (e) {
+      console.error(e);
+      // revert optimistic update
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.type !== "event" || item.id !== eventId) return item;
+          let confirmed = item.confirmed_count || 0;
+          if (item.user_rsvp_status === "confirmed" && previousStatus !== "confirmed") {
+            confirmed = Math.max(0, confirmed - 1);
+          } else if (
+            previousStatus === "confirmed" &&
+            item.user_rsvp_status !== "confirmed"
+          ) {
+            confirmed += 1;
+          }
+          return {
+            ...item,
+            user_rsvp_status: previousStatus,
+            confirmed_count: confirmed,
+          };
+        })
+      );
+      throw e;
+    }
+  }
+
+  async function votePoll(pollId, optionLabel) {
+    if (!pollId) return null;
+    const updated = await pollApi.vote(pollId, optionLabel);
+    const normalized = normalizeFeedItem({ type: "poll", ...updated });
+    setItems((prev) =>
+      prev.map((item) =>
+        item.type === "poll" && item.id === pollId ? normalized : item
+      )
+    );
+    return normalized;
+  }
+
   return {
     items,
     hasMore,
@@ -231,6 +340,8 @@ export default function useThreads() {
     fetchComments,
     addComment,
     deleteThread,
+    rsvpEvent,
+    votePoll,
     currentUser,
     userUniversity,
     universityLoaded,
@@ -243,10 +354,81 @@ function normalizeFeedItem(item) {
     item.type ||
     (item.thread ? "thread" : item.event ? "event" : item.poll ? "poll" : "thread");
 
-  if (item[type]) {
-    return { type, ...item[type] };
+  const payload = item[type] ? item[type] : { ...item };
+
+  if (type === "thread") {
+    const tags = Array.isArray(payload.tags)
+      ? payload.tags
+      : typeof payload.tags === "string" && payload.tags.length
+      ? payload.tags.split(",").map((tag) => tag.trim()).filter(Boolean)
+      : [];
+
+    return {
+      type: "thread",
+      ...payload,
+      tags,
+      author: payload.author || payload.user || {},
+      top_comments: (payload.top_comments || []).map((comment) => ({
+        ...comment,
+        author: comment.author || {},
+      })),
+    };
   }
 
-  const { thread, event, poll, ...rest } = item;
-  return { type, ...rest };
+  if (type === "event") {
+    return {
+      type: "event",
+      id: payload.id,
+      title: payload.title,
+      description: payload.description,
+      location: payload.location,
+      scheduled_at: payload.scheduled_at || payload.start_datetime,
+      start_datetime: payload.start_datetime || payload.scheduled_at,
+      end_datetime: payload.end_datetime,
+      audience:
+        payload.university || payload.audience === "faculdade"
+          ? "faculdade"
+          : payload.audience || "geral",
+      university: payload.university,
+      confirmed_count:
+        payload.confirmed_count ??
+        payload.participant_count ??
+        payload.confirmed_people?.length ??
+        payload.confirmed_users?.length ??
+        0,
+      creator: payload.creator || { user_id: payload.created_by },
+      created_at: payload.created_at,
+      comment: payload.comment,
+      photo_url: payload.photo_url || payload.photo,
+      user_rsvp_status: payload.user_rsvp_status || null,
+    };
+  }
+
+  if (type === "poll") {
+    return {
+      type: "poll",
+      id: payload.id,
+      title: payload.title,
+      description: payload.description,
+      audience: payload.audience || payload.type || "geral",
+      options: (payload.options || []).map((option) =>
+        typeof option === "string"
+          ? { label: option, votes_count: 0 }
+          : {
+              label: option.label || option.text || option.title || String(option),
+              votes_count:
+                option.votes_count ??
+                option.vote_count ??
+                option.votes?.length ??
+                0,
+            }
+      ),
+      creator: payload.creator || {},
+      votes: payload.votes,
+      created_at: payload.created_at,
+      user_vote: payload.user_vote || null,
+    };
+  }
+
+  return { type, ...payload };
 }

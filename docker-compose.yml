@@ -35,7 +35,14 @@ services:
       - ./src/backend/app:/app/app
       - ./src/backend/alembic:/app/alembic
       - ./src/backend/media:/app/media
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
 
 volumes:
   postgres_data:

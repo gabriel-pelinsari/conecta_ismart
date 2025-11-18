@@ -11,6 +11,8 @@ import {
   FiSearch,
   FiShield,
   FiPieChart,
+  FiMenu,
+  FiX,
 } from "react-icons/fi";
 import ProfileSearchModal from "./ProfileSearchModal";
 
@@ -25,6 +27,10 @@ const Bar = styled.nav`
   align-items: center;
   justify-content: space-between;
   z-index: 10;
+
+  @media (max-width: 768px) {
+    padding: 12px 16px;
+  }
 `;
 
 const Logo = styled(Link)`
@@ -35,12 +41,20 @@ const Logo = styled(Link)`
   &:hover {
     opacity: 0.8;
   }
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+  }
 `;
 
 const NavLinks = styled.div`
   display: flex;
   align-items: center;
   gap: 28px;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const StyledLink = styled(Link)`
@@ -98,19 +112,134 @@ const LogoutButton = styled(IconButton)`
   }
 `;
 
+const MobileMenuButton = styled(IconButton)`
+  display: none;
+
+  @media (max-width: 768px) {
+    display: flex;
+    font-size: 24px;
+  }
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
+const MobileMenu = styled.div`
+  display: none;
+
+  @media (max-width: 768px) {
+    display: ${({ $isOpen }) => ($isOpen ? "flex" : "none")};
+    position: fixed;
+    top: 57px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: ${({ theme }) => theme.colors.surface};
+    flex-direction: column;
+    padding: 20px;
+    gap: 24px;
+    z-index: 9;
+    border-top: 1px solid ${({ theme }) => theme.colors.outline};
+    animation: slideDown 0.2s ease-out;
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  }
+`;
+
+const MobileNavItem = styled(Link)`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: 16px;
+  transition: all 0.15s ease;
+
+  svg {
+    font-size: 24px;
+  }
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.outline};
+    color: ${({ theme }) => theme.colors.text};
+  }
+
+  ${({ $active, theme }) =>
+    $active &&
+    `
+    color: ${theme.colors.primary};
+    background: ${theme.colors.outline};
+  `}
+`;
+
+const MobileButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: none;
+  border: none;
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+
+  svg {
+    font-size: 24px;
+  }
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.outline};
+    color: ${({ theme }) => theme.colors.text};
+  }
+`;
+
+const MobileDivider = styled.div`
+  height: 1px;
+  background: ${({ theme }) => theme.colors.outline};
+  margin: 8px 0;
+`;
+
 export default function NavBar({ role, logout, themeName = "dark", onToggleTheme }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   function handleProfileSelect(userId) {
     if (!userId) return;
     navigate(`/profile/${userId}`);
+    setMobileMenuOpen(false);
+  }
+
+  function handleMobileNavClick() {
+    setMobileMenuOpen(false);
   }
 
   return (
     <Bar>
       <Logo to="/home">Conecta</Logo>
+
+      <MobileMenuButton
+        type="button"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+      >
+        {mobileMenuOpen ? <FiX /> : <FiMenu />}
+      </MobileMenuButton>
 
       <NavLinks>
         <StyledLink
@@ -186,6 +315,93 @@ export default function NavBar({ role, logout, themeName = "dark", onToggleTheme
           <FiLogOut />
         </LogoutButton>
       </NavLinks>
+
+      <MobileMenu $isOpen={mobileMenuOpen}>
+        <MobileNavItem
+          to="/home"
+          $active={pathname === "/home"}
+          onClick={handleMobileNavClick}
+        >
+          <FiHome />
+          <span>Início</span>
+        </MobileNavItem>
+
+        <MobileNavItem
+          to="/notifications"
+          $active={pathname === "/notifications"}
+          onClick={handleMobileNavClick}
+        >
+          <FiBell />
+          <span>Notificações</span>
+        </MobileNavItem>
+
+        <MobileNavItem
+          to="/profile"
+          $active={pathname === "/profile"}
+          onClick={handleMobileNavClick}
+        >
+          <FiUser />
+          <span>Perfil</span>
+        </MobileNavItem>
+
+        {role === "admin" && (
+          <>
+            <MobileNavItem
+              to="/admin/dashboard"
+              $active={pathname === "/admin/dashboard"}
+              onClick={handleMobileNavClick}
+            >
+              <FiPieChart />
+              <span>Dashboard</span>
+            </MobileNavItem>
+
+            <MobileNavItem
+              to="/admin"
+              $active={pathname === "/admin"}
+              onClick={handleMobileNavClick}
+            >
+              <FiShield />
+              <span>Admin</span>
+            </MobileNavItem>
+          </>
+        )}
+
+        <MobileDivider />
+
+        <MobileButton
+          type="button"
+          onClick={() => {
+            setSearchOpen(true);
+            setMobileMenuOpen(false);
+          }}
+        >
+          <FiSearch />
+          <span>Buscar perfis</span>
+        </MobileButton>
+
+        {onToggleTheme && (
+          <MobileButton
+            type="button"
+            onClick={() => {
+              onToggleTheme();
+              setMobileMenuOpen(false);
+            }}
+          >
+            {themeName === "light" ? <FiMoon /> : <FiSun />}
+            <span>{themeName === "light" ? "Modo escuro" : "Modo claro"}</span>
+          </MobileButton>
+        )}
+
+        <MobileButton
+          onClick={() => {
+            logout();
+            setMobileMenuOpen(false);
+          }}
+        >
+          <FiLogOut />
+          <span>Sair</span>
+        </MobileButton>
+      </MobileMenu>
 
       {searchOpen && (
         <ProfileSearchModal

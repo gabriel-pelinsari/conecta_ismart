@@ -12,6 +12,14 @@ const Page = styled.main`
   display: flex;
   flex-direction: column;
   align-items: center;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    padding: 16px;
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    padding: 12px;
+  }
 `;
 
 const Feed = styled.div`
@@ -20,6 +28,10 @@ const Feed = styled.div`
   display: flex;
   flex-direction: column;
   gap: 10px;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    gap: 8px;
+  }
 `;
 
 const FiltersRow = styled.div`
@@ -29,6 +41,16 @@ const FiltersRow = styled.div`
   gap: 8px;
   flex-wrap: wrap;
   margin: 0 auto 12px auto;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
 `;
 
 const FilterChip = styled.button`
@@ -51,12 +73,22 @@ const FilterChip = styled.button`
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary};
   }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
 `;
 
 const LoadingText = styled.p`
   text-align: center;
   color: ${({ theme }) => theme.colors.textMuted};
   margin: 24px 0;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    margin: 16px 0;
+    font-size: 14px;
+  }
 `;
 
 export default function Home() {
@@ -114,9 +146,9 @@ export default function Home() {
 
     switch (item.type) {
       case "event":
-        return <EventCard key={key} event={item} />;
+        return <EventCard key={key} event={item} onRsvp={api.rsvpEvent} />;
       case "poll":
-        return <PollCard key={key} poll={item} />;
+        return <PollCard key={key} poll={item} onVote={api.votePoll} />;
       default:
         return <ThreadCard key={key} thread={item} api={api} />;
     }

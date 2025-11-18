@@ -6,27 +6,45 @@ function auth() {
 }
 
 export const eventApi = {
-  async create({
-    title,
-    description,
-    location,
-    scheduled_at,
-    audience = "geral",
-    comment,
-    photo,
-  }) {
-    const payload = new FormData();
-    if (title) payload.append("title", title);
-    if (description) payload.append("description", description);
-    if (location) payload.append("location", location);
-    if (scheduled_at) payload.append("scheduled_at", scheduled_at);
-    if (audience) payload.append("audience", audience);
-    if (comment) payload.append("comment", comment);
-    if (photo) payload.append("photo", photo);
+  async list({
+    skip = 0,
+    limit = 10,
+    university,
+    includePast = false,
+  } = {}) {
+    const params = new URLSearchParams();
+    params.set("skip", String(skip));
+    params.set("limit", String(limit));
+    if (university) params.set("university", university);
+    if (includePast) params.set("include_past", "true");
 
-    const { data } = await api.post("/events/", payload, {
+    const { data } = await api.get(`/api/events/?${params.toString()}`, {
       headers: auth(),
     });
+    return data;
+  },
+
+  async create(payload) {
+    const { data } = await api.post("/api/events/", payload, {
+      headers: {
+        ...auth(),
+        "Content-Type": "application/json",
+      },
+    });
+    return data;
+  },
+
+  async rsvp(eventId, status) {
+    const { data } = await api.post(
+      `/api/events/${eventId}/rsvp`,
+      { status },
+      {
+        headers: {
+          ...auth(),
+          "Content-Type": "application/json",
+        },
+      }
+    );
     return data;
   },
 };

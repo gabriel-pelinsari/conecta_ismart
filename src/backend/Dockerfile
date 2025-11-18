@@ -12,6 +12,9 @@ RUN pip install --upgrade pip && \
 
 COPY . .
 
+RUN chmod +x start.sh
+
 EXPOSE 8000
 
+ENTRYPOINT ["./start.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
