@@ -2,14 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from typing import List, Optional
-from app.db.session import get_db
+from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.models.profile import Profile
 from app.models.thread import Thread, Comment, ThreadVote, CommentVote
-from app.api.deps import get_current_user
 from app.schemas.thread import ThreadCreate, ThreadOut, CommentCreate, CommentOut, VoteIn, AuthorOut
 
-router = APIRouter(prefix="/threads", tags=["Threads"])
+router = APIRouter(prefix="/api/threads", tags=["Threads"])
 
 # === Criar Thread ===
 @router.post("/", response_model=ThreadOut)

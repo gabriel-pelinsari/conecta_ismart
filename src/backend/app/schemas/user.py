@@ -11,24 +11,20 @@ class UserBase(BaseModel):
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: constr(min_length=8, max_length=64)
-    verification_code: str
+    password: str
 
     @validator('password')
-    def strong_password(cls, v):
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('A senha deve conter ao menos 1 letra maiúscula.')
-        if not re.search(r'\d', v):
-            raise ValueError('A senha deve conter ao menos 1 número.')
-        if not PASSWORD_ALLOWED.match(v):
-            raise ValueError('A senha contém caracteres não permitidos.')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('A senha deve ter pelo menos 8 caracteres.')
+        if len(v) > 64:
+            raise ValueError('A senha não pode ter mais de 64 caracteres.')
         return v
 
 class UserOut(UserBase):
     id: int
     is_active: bool
     is_verified: bool
-    role: str
 
     # ✅ Pydantic v2
     model_config = ConfigDict(from_attributes=True)

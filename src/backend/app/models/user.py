@@ -10,11 +10,9 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     # Allow null until user completes registration and sets a password
     hashed_password = Column(String(255), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
+    is_active = Column(Boolean, default=False, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
-    verification_code = Column(String(6), nullable=True)
-    role = Column(String(20), default="student", nullable=False)
     created_at = Column(DateTime(timezone=False), server_default=func.now())
     updated_at = Column(DateTime(timezone=False), server_default=func.now())
 
@@ -40,14 +38,18 @@ class User(Base):
 class UserStats(Base):
     __tablename__ = "user_stats"
 
+    id = Column(Integer, primary_key=True, index=True)
     user_id = Column(
         Integer,
         ForeignKey("users.id", ondelete="CASCADE"),
-        primary_key=True,
+        unique=True,
         nullable=False
     )
-    threads_count = Column(Integer, default=0)
-    comments_count = Column(Integer, default=0)
-    events_count = Column(Integer, default=0)
+    total_posts = Column(Integer, default=0)
+    total_comments = Column(Integer, default=0)
+    total_votes_received = Column(Integer, default=0)
+    total_friendships = Column(Integer, default=0)
+    badges_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=False), server_default=func.now())
 
     user = relationship("User", back_populates="stats")

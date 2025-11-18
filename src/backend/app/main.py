@@ -12,7 +12,7 @@ logging.basicConfig(
 
 # === Imports ===
 from app.db.session import engine
-from app.api import auth, profiles, interests, threads
+from app.api import auth, profiles, interests, threads, student_directory
 
 # === Inicialização do app ===
 app = FastAPI(title="ISMART Conecta API", version="1.0.0")
@@ -20,10 +20,12 @@ app = FastAPI(title="ISMART Conecta API", version="1.0.0")
 # === Inclusão de routers ===
 app.include_router(auth.router)
 app.include_router(profiles.router)
-app.include_router(interests.router)  
+app.include_router(interests.router)
 app.include_router(threads.router)
+app.include_router(student_directory.router)
 
-user.Base.metadata.create_all(bind=engine)
+# Não criar tabelas automaticamente - banco gerenciado externamente
+# user.Base.metadata.create_all(bind=engine)
 
 # === CORS ===
 origins = ["*"]
