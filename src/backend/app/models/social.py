@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, DateTime, func
+from sqlalchemy import Column, Integer, ForeignKey, DateTime, func, Text
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 from app.models.user import User
@@ -34,3 +34,29 @@ class UserInterest(Base):
 
     user = relationship("User", back_populates="interests")
     interest = relationship("Interest", back_populates="users")
+
+
+class UniversityGroup(Base):
+    """RF052 - Grupos automáticos por universidade"""
+    __tablename__ = "university_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    university_name = Column(String(100), unique=True, nullable=False, index=True)
+    name = Column(String(200), nullable=False)  # Ex: "USP - Comunidade ISMART"
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=False), server_default=func.now())
+    updated_at = Column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now())
+
+    members = relationship("UniversityGroupMember", back_populates="group", cascade="all, delete-orphan")
+
+
+class UniversityGroupMember(Base):
+    """Membros dos grupos de universidade"""
+    __tablename__ = "university_group_members"
+
+    group_id = Column(Integer, ForeignKey("university_groups.id", ondelete="CASCADE"), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    joined_at = Column(DateTime(timezone=False), server_default=func.now())
+
+    group = relationship("UniversityGroup", back_populates="members")
+    user = relationship("User")
