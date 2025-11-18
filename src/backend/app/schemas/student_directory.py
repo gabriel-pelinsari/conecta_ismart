@@ -1,11 +1,10 @@
 """
 Schemas para o diretório de alunos (Módulo 4: Descoberta e Agrupamento)
-Adaptado para usar UUID (schema Supabase existente)
+Adaptado para o novo schema local
 """
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
-from uuid import UUID
 
 
 # === SCHEMAS DE INTERESSE ===
@@ -23,7 +22,7 @@ class InterestOut(InterestBase):
 # === SCHEMAS DE ALUNO (STUDENT CARD) ===
 class StudentCardOut(BaseModel):
     """Schema para exibir cards de alunos na página Explorar"""
-    id: UUID
+    id: int  # user_id (int, not UUID)
     full_name: str
     nickname: Optional[str] = None
     university: Optional[str] = None  # Nome da universidade (via relationship)

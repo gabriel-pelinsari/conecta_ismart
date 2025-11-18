@@ -1,5 +1,6 @@
 """
 Rotas da API para o diretório de alunos (Módulo 4: Descoberta e Agrupamento)
+ADAPTADO PARA O NOVO SCHEMA LOCAL
 """
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
@@ -13,11 +14,9 @@ from app.schemas.student_directory import (
     StudentFilters,
     FilterFacets,
     SuggestionsResponse,
-    UniversityPageResponse
+    UniversityPageResponse,
 )
 from app.services.student_directory import StudentDirectoryService
-from app.services.university_groups import UniversityGroupService
-from app.schemas.student_directory import UniversityGroupOut
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +39,6 @@ def explore_students(
 
     # RF050 - Filtro por interesses
     interests: Optional[List[str]] = Query(None, description="Filtrar por interesse(s)/tag(s)"),
-
-    # Filtro adicional por semestre
-    semesters: Optional[List[str]] = Query(None, description="Filtrar por semestre(s)"),
 
     # Ordenação
     order_by: str = Query(
@@ -69,13 +65,13 @@ def explore_students(
     - RF055: Filtros combinados (múltiplos critérios simultâneos)
 
     **Regras de negócio:**
-    - Exibe apenas alunos ativos e com perfil público
+    - Exibe apenas alunos com perfil público (is_public=true)
     - Não exibe o próprio usuário
     - Ordem padrão: aleatória (descoberta)
     - Load inicial: 20 alunos (configurável via limit)
     - Suporta infinite scroll via offset/limit
-    - Informações exibidas: foto, nome, universidade, curso, semestre, 3 tags principais
-    - Status de amizade visível: "not_friends", "pending_sent", "pending_received", "friends"
+    - Informações exibidas: foto, nome, universidade, curso, 3 tags principais
+    - Status de conexão visível: "not_connected", "pending_sent", "pending_received", "connected"
     """
     try:
         filters = StudentFilters(
@@ -83,7 +79,7 @@ def explore_students(
             universities=universities,
             courses=courses,
             interests=interests,
-            semesters=semesters,
+            entry_years=None,
             order_by=order_by,
             offset=offset,
             limit=limit
@@ -106,7 +102,7 @@ def explore_students(
         logger.error(f"Error exploring students: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao buscar alunos"
+            detail=f"Erro ao buscar alunos: {str(e)}"
         )
 
 
@@ -122,7 +118,7 @@ def get_filter_facets(
     - Quantos alunos existem em cada universidade
     - Quantos alunos existem em cada curso
     - Top 50 interesses/tags mais populares
-    - Quantos alunos em cada semestre
+    - Quantos alunos em cada ano de entrada
 
     Exemplo de uso na UI:
     ```
@@ -143,99 +139,96 @@ def get_filter_facets(
         logger.error(f"Error getting filter facets: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao buscar facets de filtros"
+            detail=f"Erro ao buscar filtros: {str(e)}"
         )
 
 
 @router.get("/suggestions", response_model=SuggestionsResponse)
-def get_connection_suggestions(
-    limit: int = Query(10, ge=1, le=50, description="Número de sugestões (max 50)"),
+def get_suggestions(
+    limit: int = Query(10, ge=1, le=50, description="Número máximo de sugestões"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    **RF051 - Sugestões de conexão baseadas em vetorização de interesses**
+    **RF051 - Sugestões de conexão personalizadas**
 
-    Sistema de recomendação que utiliza similarity entre interesses (tags) para
-    sugerir alunos com perfil compatível.
+    Retorna sugestões de alunos compatíveis baseadas em interesses comuns usando
+    Jaccard similarity coefficient.
 
-    **Regras de negócio:**
-    - Algoritmo: cosine similarity (Jaccard simplificado)
-    - Mínimo 3 tags no perfil para gerar sugestões
-    - Não sugere alunos já amigos ou com solicitação pendente
-    - Limite: até 50 sugestões por vez
-    - Exibe score de compatibilidade (0-100%)
-    - Mostra interesses em comum
+    **Pré-requisitos:**
+    - Usuário deve ter pelo menos 3 interesses cadastrados
 
-    **Resposta:**
-    - Lista ordenada por compatibilidade (maior primeiro)
-    - Cada sugestão inclui: aluno, score, interesses comuns, motivo
-    - Se < 3 tags: retorna mensagem "Complete seu perfil..."
+    **Exemplo de resposta:**
+    ```json
+    {
+      "suggestions": [
+        {
+          "student": { ... },
+          "compatibility_score": 85.5,
+          "common_interests": ["Python", "Machine Learning", "Web Dev"],
+          "reason": "Vocês compartilham 3 interesse(s) em comum"
+        }
+      ],
+      "total": 12,
+      "message": null
+    }
+    ```
     """
     try:
-        suggestions = StudentDirectoryService.get_connection_suggestions(
+        result = StudentDirectoryService.get_connection_suggestions(
             db=db,
             user_id=current_user.id,
             limit=limit
         )
 
-        logger.info(
-            f"User {current_user.id} got {suggestions.total} connection suggestions"
-        )
+        logger.info(f"User {current_user.id} viewed suggestions: {result.total} suggestions")
 
-        return suggestions
+        return result
 
     except Exception as e:
         logger.error(f"Error getting suggestions: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao buscar sugestões de conexão"
+            detail=f"Erro ao gerar sugestões: {str(e)}"
         )
 
 
-@router.get("/universities/{university_slug}", response_model=UniversityPageResponse)
+@router.get("/university/{university_name}", response_model=UniversityPageResponse)
 def get_university_page(
-    university_slug: str,
-    course: Optional[str] = Query(None, description="Filtrar por curso"),
-    interests: Optional[List[str]] = Query(None, description="Filtrar por interesse(s)"),
-    offset: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    university_name: str,
+    course_filter: Optional[str] = Query(None, description="Filtrar por curso (opcional)"),
+    interests: Optional[List[str]] = Query(None, description="Filtrar por interesses (opcional)"),
+    offset: int = Query(0, ge=0, description="Offset para paginação"),
+    limit: int = Query(20, ge=1, le=100, description="Limite de resultados"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    **RF053 - Página dedicada por universidade listando todos os alunos**
+    **RF053 - Página dedicada por universidade**
 
-    Página específica para cada universidade exibindo lista de todos os alunos
-    daquela instituição com filtros e opções de conexão.
+    Retorna lista de alunos de uma universidade específica com suporte a filtros.
 
-    **URL padrão:** `/universidades/{slug-universidade}` (ex: `/universidades/usp`)
-
-    **Regras de negócio:**
-    - Exibe foto, nome, curso, semestre, tags de cada aluno da universidade
-    - Ordenação padrão: aleatória (descoberta)
-    - Filtros: curso e tags disponíveis
-    - Botão "Adicionar amigo" em cada card
-    - Infinite scroll com pagination
-
-    **Resposta:**
-    - Estatísticas da universidade (nome, total de alunos, cursos disponíveis)
-    - Lista paginada de alunos
-    - Metadados de paginação
+    **Exemplo:**
+    ```
+    GET /api/students/university/Universidade%20de%20S%C3%A3o%20Paulo
+    ?course_filter=Engenharia de Software
+    &interests=Python&interests=JavaScript
+    &offset=0&limit=20
+    ```
     """
     try:
         result = StudentDirectoryService.get_university_page(
             db=db,
             current_user_id=current_user.id,
-            university_slug=university_slug,
-            course_filter=course,
+            university_name=university_name,
+            course_filter=course_filter,
             interest_filter=interests,
             offset=offset,
             limit=limit
         )
 
         logger.info(
-            f"User {current_user.id} viewed university page: {university_slug}, "
+            f"User {current_user.id} viewed {university_name}: "
             f"{result.total} students"
         )
 
@@ -245,204 +238,5 @@ def get_university_page(
         logger.error(f"Error getting university page: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao buscar página da universidade"
-        )
-
-
-@router.get("/my-university", response_model=UniversityPageResponse)
-def get_my_university_students(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    **Atalho: Ver alunos da minha universidade**
-
-    Retorna página da universidade do usuário atual (RF048 - RN006).
-
-    **Regras:**
-    - Busca automaticamente a universidade do perfil do usuário
-    - Retorna erro 404 se usuário não tem universidade cadastrada
-    - Comportamento idêntico a GET /universities/{slug}
-    """
-    try:
-        # Buscar universidade do usuário atual
-        from app.models.profile import Profile
-
-        profile = db.query(Profile).filter(
-            Profile.user_id == current_user.id
-        ).first()
-
-        if not profile or not profile.university:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Você ainda não cadastrou sua universidade no perfil"
-            )
-
-        # Converter nome para slug
-        university_slug = profile.university.lower().replace(" ", "-")
-
-        result = StudentDirectoryService.get_university_page(
-            db=db,
-            current_user_id=current_user.id,
-            university_slug=university_slug,
-            course_filter=None,
-            interest_filter=None,
-            offset=offset,
-            limit=limit
-        )
-
-        logger.info(
-            f"User {current_user.id} viewed their university page: {profile.university}"
-        )
-
-        return result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting my university: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao buscar alunos da sua universidade"
-        )
-
-
-# === ENDPOINTS DE GRUPOS AUTOMÁTICOS (RF052) ===
-
-@router.get("/groups/my-university", response_model=UniversityGroupOut)
-def get_my_university_group(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    **RF052 - Retorna o grupo automático da minha universidade**
-
-    Cada universidade tem um grupo automático onde todos os alunos são membros.
-
-    **Regras:**
-    - Grupo criado automaticamente quando primeiro aluno se cadastra
-    - Todos os alunos da universidade são membros automaticamente
-    - Nome padrão: "[Nome da Universidade] - Comunidade ISMART"
-    - Retorna 404 se usuário não tem universidade cadastrada
-    """
-    try:
-        group = UniversityGroupService.get_user_group(db, current_user.id)
-
-        if not group:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Você ainda não cadastrou sua universidade ou o grupo não foi criado"
-            )
-
-        # Contar membros
-        member_count = UniversityGroupService.get_group_members_count(db, group.id)
-
-        return UniversityGroupOut(
-            id=group.id,
-            name=group.name,
-            description=group.description,
-            university_name=group.university_name,
-            total_members=member_count,
-            created_at=group.created_at
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting university group: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao buscar grupo da universidade"
-        )
-
-
-@router.get("/groups", response_model=List[UniversityGroupOut])
-def list_all_university_groups(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    **RF052 - Lista todos os grupos de universidades**
-
-    Retorna lista de todos os grupos automáticos criados no sistema.
-
-    **Útil para:**
-    - Visualizar todas as universidades representadas na plataforma
-    - Ver quantos alunos existem em cada universidade
-    - Admin: monitorar distribuição de alunos
-    """
-    try:
-        groups_data = UniversityGroupService.get_all_groups_with_stats(db)
-
-        groups = [
-            UniversityGroupOut(
-                id=g["id"],
-                name=g["name"],
-                description=g["description"],
-                university_name=g["university_name"],
-                total_members=g["member_count"],
-                created_at=g["created_at"]
-            )
-            for g in groups_data
-        ]
-
-        logger.info(f"User {current_user.id} listed {len(groups)} university groups")
-
-        return groups
-
-    except Exception as e:
-        logger.error(f"Error listing university groups: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao listar grupos de universidades"
-        )
-
-
-@router.post("/groups/sync-all", status_code=status.HTTP_200_OK)
-def sync_all_university_groups(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    **[ADMIN] Sincronizar todos os grupos de universidades**
-
-    Cria grupos para todas as universidades e adiciona todos os alunos aos seus
-    respectivos grupos automaticamente.
-
-    **Útil para:**
-    - Popular grupos inicialmente após migration
-    - Corrigir inconsistências
-    - Adicionar alunos que não foram adicionados automaticamente
-
-    **Requer:** Usuário admin
-    """
-    try:
-        # Verificar se é admin
-        if not current_user.is_admin:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Apenas administradores podem sincronizar grupos"
-            )
-
-        result = UniversityGroupService.sync_all_users(db)
-
-        logger.info(
-            f"Admin {current_user.id} synced university groups: {result}"
-        )
-
-        return {
-            "message": "Sincronização concluída com sucesso",
-            "groups_created": result["groups_created"],
-            "users_added": result["users_added"]
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error syncing university groups: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao sincronizar grupos"
+            detail=f"Erro ao buscar universidade: {str(e)}"
         )

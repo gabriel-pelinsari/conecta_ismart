@@ -1,16 +1,15 @@
 """
 Serviços para o diretório de alunos (Módulo 4: Descoberta e Agrupamento)
+ADAPTADO PARA O NOVO SCHEMA LOCAL
 """
-from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, and_, case, text
-from typing import List, Optional, Tuple
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, or_, and_
+from typing import List, Optional
 import logging
-from collections import Counter
-import math
 
 from app.models.user import User
 from app.models.profile import Profile
-from app.models.social import Friendship, UserInterest, Interest
+from app.models.social import Friendship, Interest, UserInterest
 from app.schemas.student_directory import (
     StudentCardOut,
     StudentFilters,
@@ -41,11 +40,10 @@ class StudentDirectoryService:
         RF054 - Busca de alunos por nome
         RF055 - Filtros combinados (múltiplos critérios simultâneos)
         """
-        # Query base: usuários ativos com perfil público
-        query = db.query(Profile).join(User).filter(
-            User.is_active == True,
-            User.id != current_user_id,  # Não mostrar o próprio usuário
-            Profile.is_public == True
+        # Query base: perfis ativos excluindo o próprio usuário e apenas públicos
+        query = db.query(Profile).filter(
+            Profile.user_id != current_user_id,
+            Profile.is_public == True  # Apenas perfis públicos
         )
 
         # RF054 - Busca por nome (mínimo 2 caracteres)
@@ -65,7 +63,7 @@ class StudentDirectoryService:
 
         # RF050 - Filtro por interesses comuns
         if filters.interests:
-            # Subquery para pegar usuários com pelo menos 1 interesse em comum
+            # Subquery para pegar perfis com pelo menos 1 interesse em comum
             interest_ids = db.query(Interest.id).filter(
                 Interest.name.in_(filters.interests)
             ).subquery()
@@ -74,11 +72,10 @@ class StudentDirectoryService:
                 UserInterest.interest_id.in_(interest_ids)
             ).distinct().subquery()
 
-            query = query.filter(Profile.user_id.in_(user_ids_with_interests))
-
-        # Filtro por semestre
-        if filters.semesters:
-            query = query.filter(Profile.semester.in_(filters.semesters))
+            # Join com users para filtrar profiles
+            query = query.join(User).filter(
+                User.id.in_(user_ids_with_interests)
+            )
 
         # Total de resultados (antes da paginação)
         total = query.count()
@@ -124,7 +121,7 @@ class StudentDirectoryService:
                 nickname=profile.nickname,
                 university=profile.university,
                 course=profile.course,
-                semester=profile.semester,
+                entry_year=None,  # Não existe no novo schema
                 photo_url=profile.photo_url,
                 interests=interests_list,
                 friendship_status=friendship_status,
@@ -149,10 +146,10 @@ class StudentDirectoryService:
     ) -> str:
         """
         Retorna o status de amizade entre dois usuários
-        - 'friends': São amigos
+        - 'connected': São amigos (status='accepted')
         - 'pending_sent': Solicitação enviada (aguardando aprovação)
         - 'pending_received': Solicitação recebida (pode aceitar)
-        - 'not_friends': Não são amigos
+        - 'not_connected': Não são amigos
         """
         # Verificar se existe friendship
         friendship = db.query(Friendship).filter(
@@ -163,10 +160,10 @@ class StudentDirectoryService:
         ).first()
 
         if not friendship:
-            return "not_friends"
+            return "not_connected"
 
         if friendship.status == "accepted":
-            return "friends"
+            return "connected"
 
         if friendship.user_id == user_id:
             return "pending_sent"
@@ -185,14 +182,14 @@ class StudentDirectoryService:
         """
         # Interesses do usuário atual
         user_interests = set(
-            db.query(Interest.id).join(UserInterest).filter(
+            db.query(UserInterest.interest_id).filter(
                 UserInterest.user_id == user_id
             ).all()
         )
 
         # Interesses do outro usuário
         other_interests = set(
-            db.query(Interest.id).join(UserInterest).filter(
+            db.query(UserInterest.interest_id).filter(
                 UserInterest.user_id == other_user_id
             ).all()
         )
@@ -221,9 +218,8 @@ class StudentDirectoryService:
         Útil para UI mostrar quantos alunos existem em cada categoria
         """
         # Query base
-        base_query = db.query(Profile).join(User).filter(
-            User.is_active == True,
-            User.id != current_user_id,
+        base_query = db.query(Profile).filter(
+            Profile.user_id != current_user_id,
             Profile.is_public == True
         )
 
@@ -231,9 +227,8 @@ class StudentDirectoryService:
         universities = db.query(
             Profile.university,
             func.count(Profile.id).label('count')
-        ).join(User).filter(
-            User.is_active == True,
-            User.id != current_user_id,
+        ).filter(
+            Profile.user_id != current_user_id,
             Profile.is_public == True,
             Profile.university.isnot(None)
         ).group_by(Profile.university).order_by(Profile.university).all()
@@ -247,9 +242,8 @@ class StudentDirectoryService:
         courses = db.query(
             Profile.course,
             func.count(Profile.id).label('count')
-        ).join(User).filter(
-            User.is_active == True,
-            User.id != current_user_id,
+        ).filter(
+            Profile.user_id != current_user_id,
             Profile.is_public == True,
             Profile.course.isnot(None)
         ).group_by(Profile.course).order_by(Profile.course).all()
@@ -263,9 +257,9 @@ class StudentDirectoryService:
         interests = db.query(
             Interest.name,
             func.count(UserInterest.user_id).label('count')
-        ).join(UserInterest).join(User).filter(
-            User.is_active == True,
-            User.id != current_user_id
+        ).join(UserInterest).join(User).join(Profile).filter(
+            Profile.user_id != current_user_id,
+            Profile.is_public == True
         ).group_by(Interest.name).order_by(
             func.count(UserInterest.user_id).desc()
         ).limit(50).all()
@@ -275,172 +269,18 @@ class StudentDirectoryService:
             for interest, count in interests
         ]
 
-        # Contar por semestre
-        semesters = db.query(
-            Profile.semester,
-            func.count(Profile.id).label('count')
-        ).join(User).filter(
-            User.is_active == True,
-            User.id != current_user_id,
-            Profile.is_public == True,
-            Profile.semester.isnot(None)
-        ).group_by(Profile.semester).order_by(Profile.semester).all()
-
-        semester_facets = [
-            FilterFacet(value=semester, count=count)
-            for semester, count in semesters
-        ]
-
         return FilterFacets(
             universities=university_facets,
             courses=course_facets,
             interests=interest_facets,
-            semesters=semester_facets
-        )
-
-    @staticmethod
-    def get_connection_suggestions(
-        db: Session,
-        user_id: int,
-        limit: int = 10
-    ) -> SuggestionsResponse:
-        """
-        RF051 - Sugestões de conexão baseadas em vetorização de interesses
-        Usa cosine similarity (Jaccard simplificado) para sugerir alunos compatíveis
-        """
-        # Verificar se usuário tem pelo menos 3 tags
-        user_interests_count = db.query(UserInterest).filter(
-            UserInterest.user_id == user_id
-        ).count()
-
-        if user_interests_count < 3:
-            return SuggestionsResponse(
-                suggestions=[],
-                total=0,
-                message="Complete seu perfil com pelo menos 3 tags para receber sugestões personalizadas"
-            )
-
-        # Buscar interesses do usuário
-        user_interest_ids = [
-            i.interest_id for i in
-            db.query(UserInterest.interest_id).filter(
-                UserInterest.user_id == user_id
-            ).all()
-        ]
-
-        # Buscar usuários que NÃO são amigos e têm interesses em comum
-        friends_ids = db.query(Friendship.friend_id).filter(
-            Friendship.user_id == user_id,
-            Friendship.status == "accepted"
-        ).union(
-            db.query(Friendship.user_id).filter(
-                Friendship.friend_id == user_id,
-                Friendship.status == "accepted"
-            )
-        ).subquery()
-
-        pending_ids = db.query(Friendship.friend_id).filter(
-            Friendship.user_id == user_id,
-            Friendship.status == "pending"
-        ).union(
-            db.query(Friendship.user_id).filter(
-                Friendship.friend_id == user_id,
-                Friendship.status == "pending"
-            )
-        ).subquery()
-
-        # Candidatos: usuários ativos, públicos, não amigos, com interesses em comum
-        candidates = db.query(Profile).join(User).filter(
-            User.is_active == True,
-            User.id != user_id,
-            Profile.is_public == True,
-            Profile.user_id.notin_(friends_ids),
-            Profile.user_id.notin_(pending_ids)
-        ).all()
-
-        # Calcular score de compatibilidade para cada candidato
-        suggestions_data = []
-        for candidate_profile in candidates:
-            candidate_interests = [
-                i.interest_id for i in
-                db.query(UserInterest.interest_id).filter(
-                    UserInterest.user_id == candidate_profile.user_id
-                ).all()
-            ]
-
-            # Calcular interesses em comum
-            common = set(user_interest_ids).intersection(set(candidate_interests))
-            if not common:
-                continue  # Pular se não tem nada em comum
-
-            # Jaccard similarity
-            total = len(set(user_interest_ids).union(set(candidate_interests)))
-            score = (len(common) / total) * 100 if total > 0 else 0
-
-            # Buscar nomes dos interesses em comum
-            common_interest_names = db.query(Interest.name).filter(
-                Interest.id.in_(common)
-            ).limit(5).all()
-            common_names = [name[0] for name in common_interest_names]
-
-            suggestions_data.append({
-                'profile': candidate_profile,
-                'score': score,
-                'common_interests': common_names,
-                'common_count': len(common)
-            })
-
-        # Ordenar por score (descendente)
-        suggestions_data.sort(key=lambda x: x['score'], reverse=True)
-
-        # Limitar resultados
-        suggestions_data = suggestions_data[:limit]
-
-        # Converter para SuggestionOut
-        suggestions = []
-        for data in suggestions_data:
-            profile = data['profile']
-
-            # Buscar top 3 interesses do candidato
-            candidate_interest_names = db.query(Interest.name).join(UserInterest).filter(
-                UserInterest.user_id == profile.user_id
-            ).limit(3).all()
-            interests_list = [i.name for i in candidate_interest_names]
-
-            # Gerar motivo da sugestão
-            reason = f"Vocês compartilham {data['common_count']} interesse(s) em comum"
-
-            student_card = StudentCardOut(
-                id=profile.user_id,
-                full_name=profile.full_name,
-                nickname=profile.nickname,
-                university=profile.university,
-                course=profile.course,
-                semester=profile.semester,
-                photo_url=profile.photo_url,
-                interests=interests_list,
-                friendship_status="not_friends",
-                compatibility_score=data['score']
-            )
-
-            suggestions.append(SuggestionOut(
-                student=student_card,
-                compatibility_score=data['score'],
-                common_interests=data['common_interests'],
-                reason=reason
-            ))
-
-        return SuggestionsResponse(
-            suggestions=suggestions,
-            total=len(suggestions),
-            message=None
+            entry_years=[]  # Não existe no novo schema
         )
 
     @staticmethod
     def get_university_page(
         db: Session,
         current_user_id: int,
-        university_slug: str,
+        university_name: str,
         course_filter: Optional[str] = None,
         interest_filter: Optional[List[str]] = None,
         offset: int = 0,
@@ -449,14 +289,9 @@ class StudentDirectoryService:
         """
         RF053 - Página dedicada por universidade listando todos os alunos
         """
-        # Normalizar slug para nome de universidade
-        # (assumindo que slug é o nome da universidade normalizado)
-        university_name = university_slug.replace("-", " ").title()
-
         # Query base: alunos da universidade
-        query = db.query(Profile).join(User).filter(
-            User.is_active == True,
-            User.id != current_user_id,
+        query = db.query(Profile).filter(
+            Profile.user_id != current_user_id,
             Profile.is_public == True,
             Profile.university == university_name
         )
@@ -475,7 +310,9 @@ class StudentDirectoryService:
                 UserInterest.interest_id.in_(interest_ids)
             ).distinct().subquery()
 
-            query = query.filter(Profile.user_id.in_(user_ids_with_interests))
+            query = query.join(User).filter(
+                User.id.in_(user_ids_with_interests)
+            )
 
         # Total
         total = query.count()
@@ -501,7 +338,7 @@ class StudentDirectoryService:
                 nickname=profile.nickname,
                 university=profile.university,
                 course=profile.course,
-                semester=profile.semester,
+                entry_year=None,  # Não existe no novo schema
                 photo_url=profile.photo_url,
                 interests=interests_list,
                 friendship_status=friendship_status,
@@ -511,7 +348,8 @@ class StudentDirectoryService:
         # Buscar cursos disponíveis nesta universidade
         courses_available = db.query(Profile.course).filter(
             Profile.university == university_name,
-            Profile.course.isnot(None)
+            Profile.course.isnot(None),
+            Profile.is_public == True
         ).distinct().all()
         courses_list = [c[0] for c in courses_available]
 
@@ -520,7 +358,7 @@ class StudentDirectoryService:
         return UniversityPageResponse(
             university=UniversityStats(
                 university_name=university_name,
-                slug=university_slug,
+                slug=university_name.lower().replace(" ", "-"),
                 total_students=total,
                 courses_available=courses_list
             ),
