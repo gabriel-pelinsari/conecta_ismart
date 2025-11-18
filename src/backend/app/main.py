@@ -12,7 +12,11 @@ logging.basicConfig(
 
 # === Imports ===
 from app.db.session import engine
-from app.api import auth, profiles, interests, threads, student_directory, friendships, university_groups, gamification, moderation
+from app.api import (
+    auth, profiles, interests, threads, student_directory,
+    friendships, university_groups, gamification, moderation,
+    notifications, events, mentorship
+)
 
 # === Inicialização do app ===
 app = FastAPI(title="ISMART Conecta API", version="1.0.0")
@@ -27,6 +31,9 @@ app.include_router(friendships.router)
 app.include_router(university_groups.router)
 app.include_router(gamification.router)
 app.include_router(moderation.router)
+app.include_router(notifications.router)
+app.include_router(events.router)
+app.include_router(mentorship.router)
 
 # Não criar tabelas automaticamente - banco gerenciado externamente
 # user.Base.metadata.create_all(bind=engine)
