@@ -78,6 +78,10 @@ export const threadApi = {
     return data; // CommentOut
   },
 
+  async remove(threadId) {
+    await api.delete(`/threads/${threadId}`, { headers: auth() });
+  },
+
   async voteComment(commentId, value) {
     const { data } = await api.post(
       `/threads/comments/${commentId}/vote`,

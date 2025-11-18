@@ -5,9 +5,11 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
+import AdminDashboard from "./pages/AdminDashboard";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
 import Explore from "./pages/Explore";
+import Notifications from "./pages/Notifications";
 
 /* === Função auxiliar para decodificar JWT === */
 function decodeJWT(token) {
@@ -33,7 +35,7 @@ function AdminRoute({ token, role, children }) {
 }
 
 /* === App === */
-export default function App() {
+export default function App({ themeName, toggleTheme }) {
   const [token, setToken] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true); // ✅ Estado de carregamento
@@ -100,7 +102,14 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      {token && <NavBar role={role} logout={logout} />}
+      {token && (
+        <NavBar
+          role={role}
+          logout={logout}
+          themeName={themeName}
+          onToggleTheme={toggleTheme}
+        />
+      )}
       <Routes>
         <Route path="/" element={<Navigate to={token ? "/home" : "/login"} />} />
 
@@ -151,12 +160,28 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute token={token}>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/admin"
           element={
             <AdminRoute token={token} role={role}>
               <Admin token={token} />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <AdminRoute token={token} role={role}>
+              <AdminDashboard />
             </AdminRoute>
           }
         />

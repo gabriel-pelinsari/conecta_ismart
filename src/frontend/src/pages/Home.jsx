@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import styled from "styled-components";
 import ThreadComposeBar from "../components/Threads/ThreadComposeBar";
 import ThreadCard from "../components/Threads/ThreadCard";
+import EventCard from "../components/Events/EventCard";
+import PollCard from "../components/Polls/PollCard";
 import useThreads from "../hooks/useThreads";
 
 const Page = styled.main`
@@ -86,14 +88,48 @@ export default function Home() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [api.hasMore, api.loading]);
 
-  const handleCreate = useCallback(async (data) => {
+  const handleCreateThread = useCallback(async (data) => {
     await api.createThread(data);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [api]);
 
+  const handleCreateEvent = useCallback(async (data) => {
+    await api.createEvent(data);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [api]);
+
+  const handleCreatePoll = useCallback(async (data) => {
+    await api.createPoll(data);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [api]);
+
+  const renderFeedItem = (item, index) => {
+    if (!item) return null;
+    const baseKey =
+      item.id ??
+      item.uuid ??
+      item.slug ??
+      `${item.title || "item"}-${index}`;
+    const key = `${item.type || "thread"}-${baseKey}`;
+
+    switch (item.type) {
+      case "event":
+        return <EventCard key={key} event={item} />;
+      case "poll":
+        return <PollCard key={key} poll={item} />;
+      default:
+        return <ThreadCard key={key} thread={item} api={api} />;
+    }
+  };
+
   return (
     <Page>
-      <ThreadComposeBar onSearch={setSearch} onCreate={handleCreate} />
+      <ThreadComposeBar
+        onSearch={setSearch}
+        onCreateThread={handleCreateThread}
+        onCreateEvent={handleCreateEvent}
+        onCreatePoll={handleCreatePoll}
+      />
 
       <FiltersRow>
         <FilterChip
@@ -131,13 +167,7 @@ export default function Home() {
           <LoadingText>Nenhuma thread encontrada.</LoadingText>
         )}
 
-        {api.items.map((t) => (
-          <ThreadCard
-            key={t.id}
-            thread={t}
-            api={api}
-          />
-        ))}
+        {api.items.map((item, index) => renderFeedItem(item, index))}
 
         {api.loading && <LoadingText>Carregando...</LoadingText>}
         {!api.hasMore && api.items.length > 0 && (

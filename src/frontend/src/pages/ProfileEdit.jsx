@@ -111,7 +111,7 @@ const TextArea = styled.textarea`
 
   &:focus {
     border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
   }
 `;
 

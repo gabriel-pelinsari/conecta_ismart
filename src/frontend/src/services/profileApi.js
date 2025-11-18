@@ -1,4 +1,5 @@
 import api from "../api/axios";
+import mockProfiles from "../mocks/profiles";
 
 export const profileApi = {
   /**
@@ -105,5 +106,44 @@ export const profileApi = {
       }
     );
     return response.data;
+  },
+
+  listUsers: async (token) => {
+    const response = await api.get("/profiles/users", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
+  createUser: async (token, payload) => {
+    const response = await api.post("/profiles/users", payload, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
+  updateUser: async (token, userId, payload) => {
+    const response = await api.put(`/profiles/users/${userId}`, payload, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
+  deleteUser: async (token, userId) => {
+    await api.delete(`/profiles/users/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+
+  searchByNickname: async (nickname) => {
+    if (!nickname) return [];
+    const term = nickname.toLowerCase();
+    const results = mockProfiles.filter((profile) =>
+      profile.nickname.toLowerCase().includes(term)
+    );
+
+    return new Promise((resolve) => {
+      setTimeout(() => resolve(results), 200);
+    });
   },
 };

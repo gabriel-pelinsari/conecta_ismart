@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import { FiTrash2 } from "react-icons/fi";
 import Card from "../ui/Card";
 import Tag from "../ui/Tag";
 import Button from "../ui/Button";
@@ -85,8 +86,22 @@ const Actions = styled.div`
   }
 `;
 
+const DeleteButton = styled(Button)`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: ${({ theme }) => theme.colors.danger};
+  color: ${({ theme }) => theme.colors.danger};
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.danger};
+    background: ${({ theme }) => theme.colors.danger}11;
+  }
+`;
+
 export default function ThreadCard({ thread, api, onTagClick }) {
   const [expanded, setExpanded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
   const tags = thread.tags || [];
@@ -101,10 +116,28 @@ export default function ThreadCard({ thread, api, onTagClick }) {
     await api.report(thread.id);
   }
 
+  async function handleDelete() {
+    if (deleting) return;
+    const confirmDelete = window.confirm("Deseja realmente excluir esta thread?");
+    if (!confirmDelete) return;
+    setDeleting(true);
+    try {
+      await api.deleteThread(thread.id);
+    } catch (e) {
+      console.error(e);
+      alert("Não foi possível excluir a thread. Tente novamente.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   // 🧠 monta URL da foto de perfil do autor
   var photoUrl = thread.author.photo_url?.startsWith("/media")
     ? `http://localhost:8000${thread.author.photo_url}`
     : thread.author.photo_url;
+
+  const currentUserId = api.currentUser?.user_id;
+  const canDelete = currentUserId && thread.user_id === currentUserId;
 
 
   return (
@@ -176,6 +209,18 @@ export default function ThreadCard({ thread, api, onTagClick }) {
         <Button type="button" onClick={doReport} disabled={thread.is_reported}>
           {thread.is_reported ? "Denunciada" : "🚩 Denunciar"}
         </Button>
+        {canDelete && (
+          <DeleteButton
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            title="Excluir esta thread"
+            aria-label="Excluir esta thread"
+          >
+            <FiTrash2 aria-hidden="true" />
+            {deleting ? "Excluindo..." : "Excluir"}
+          </DeleteButton>
+        )}
       </Actions>
 
       {expanded && (
