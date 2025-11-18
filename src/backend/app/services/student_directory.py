@@ -368,3 +368,140 @@ class StudentDirectoryService:
             limit=limit,
             has_more=(offset + limit) < total
         )
+
+    @staticmethod
+    def get_connection_suggestions(
+        db: Session,
+        user_id: int,
+        limit: int = 10
+    ) -> SuggestionsResponse:
+        """
+        RF051 - Sugestões de conexão personalizadas baseadas em interesses comuns
+
+        Algoritmo:
+        1. Buscar interesses do usuário atual
+        2. Encontrar outros usuários com interesses em comum
+        3. Calcular score de compatibilidade (Jaccard similarity)
+        4. Ordenar por score de compatibilidade (descending)
+        5. Retornar top N sugestões
+
+        Regras:
+        - Não sugerir amigos existentes (status='accepted')
+        - Não sugerir solicitações já enviadas (pending_sent)
+        - Não sugerir o próprio usuário
+        - Apenas perfis públicos
+        - Usuário deve ter pelo menos 1 interesse para sugestões
+        """
+        # Buscar interesses do usuário atual
+        user_interests = db.query(UserInterest.interest_id).filter(
+            UserInterest.user_id == user_id
+        ).all()
+
+        user_interest_ids = set([ui[0] for ui in user_interests])
+
+        if not user_interest_ids:
+            return SuggestionsResponse(
+                suggestions=[],
+                total=0,
+                message="Complete seu perfil com mais interesses para receber sugestões"
+            )
+
+        # Query base: perfis públicos, não o próprio usuário
+        profiles = db.query(Profile).filter(
+            Profile.user_id != user_id,
+            Profile.is_public == True
+        ).all()
+
+        suggestions_data = []
+
+        for profile in profiles:
+            # Buscar interesses do outro usuário
+            other_interests = db.query(UserInterest.interest_id).filter(
+                UserInterest.user_id == profile.user_id
+            ).all()
+
+            other_interest_ids = set([oi[0] for oi in other_interests])
+
+            if not other_interest_ids:
+                continue
+
+            # Calcular interesses em comum
+            common_interests_ids = user_interest_ids.intersection(other_interest_ids)
+
+            if not common_interests_ids:
+                continue
+
+            # Calcular Jaccard similarity
+            compatibility_score = StudentDirectoryService._calculate_compatibility(
+                db, user_id, profile.user_id
+            )
+
+            # Buscar nomes dos interesses em comum
+            common_interest_names = db.query(Interest.name).filter(
+                Interest.id.in_(common_interests_ids)
+            ).all()
+            common_interests_list = [i[0] for i in common_interest_names]
+
+            # Verificar se já são amigos ou há solicitação pendente
+            friendship = db.query(Friendship).filter(
+                or_(
+                    and_(Friendship.user_id == user_id, Friendship.friend_id == profile.user_id),
+                    and_(Friendship.user_id == profile.user_id, Friendship.friend_id == user_id)
+                )
+            ).first()
+
+            # Não sugerir amigos ou solicitações pendentes do usuário
+            if friendship and (friendship.status == "accepted" or
+                              (friendship.user_id == user_id and friendship.status == "pending")):
+                continue
+
+            # Buscar interesses do perfil (para StudentCardOut)
+            profile_interests = db.query(Interest.name).join(UserInterest).filter(
+                UserInterest.user_id == profile.user_id
+            ).limit(3).all()
+            interests_list = [i[0] for i in profile_interests]
+
+            # Buscar status de amizade
+            friendship_status = StudentDirectoryService._get_friendship_status(
+                db, user_id, profile.user_id
+            )
+
+            suggestions_data.append({
+                "student": StudentCardOut(
+                    id=profile.user_id,
+                    full_name=profile.full_name,
+                    nickname=profile.nickname,
+                    university=profile.university,
+                    course=profile.course,
+                    entry_year=None,
+                    photo_url=profile.photo_url,
+                    interests=interests_list,
+                    friendship_status=friendship_status,
+                    compatibility_score=compatibility_score
+                ),
+                "compatibility_score": compatibility_score,
+                "common_interests": common_interests_list,
+                "reason": f"Vocês compartilham {len(common_interests_list)} interesse(s) em comum"
+            })
+
+        # Ordenar por score de compatibilidade (descending)
+        suggestions_data.sort(key=lambda x: x["compatibility_score"], reverse=True)
+
+        # Limitar resultados
+        suggestions_data = suggestions_data[:limit]
+
+        # Converter para SuggestionOut
+        from app.schemas.student_directory import SuggestionOut
+        suggestions = [
+            SuggestionOut(**item) for item in suggestions_data
+        ]
+
+        message = None
+        if not suggestions:
+            message = "Nenhuma sugestão disponível no momento. Explore mais alunos!"
+
+        return SuggestionsResponse(
+            suggestions=suggestions,
+            total=len(suggestions),
+            message=message
+        )

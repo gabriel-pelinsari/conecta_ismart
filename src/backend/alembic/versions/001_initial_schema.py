@@ -140,12 +140,13 @@ def upgrade() -> None:
         'threads',
         sa.Column('id', sa.Integer(), primary_key=True, index=True),
         sa.Column('title', sa.String(length=100), nullable=False),
-        sa.Column('content', sa.Text(), nullable=False),
-        sa.Column('author_id', sa.Integer(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('description', sa.Text(), nullable=False),
+        sa.Column('category', sa.String(length=50), nullable=False),  # 'geral' or 'faculdade'
+        sa.Column('tags', sa.String(length=200), server_default=''),
+        sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('university', sa.String(length=100)),
+        sa.Column('is_reported', sa.Boolean(), server_default='false'),
         sa.Column('created_at', sa.DateTime(timezone=False), server_default=sa.func.now()),
-        sa.Column('updated_at', sa.DateTime(timezone=False), server_default=sa.func.now()),
-        sa.Column('views_count', sa.Integer(), server_default='0'),
-        sa.Column('replies_count', sa.Integer(), server_default='0'),
     )
 
     # === TABLE: comments ===
@@ -153,33 +154,29 @@ def upgrade() -> None:
         'comments',
         sa.Column('id', sa.Integer(), primary_key=True, index=True),
         sa.Column('thread_id', sa.Integer(), sa.ForeignKey('threads.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('author_id', sa.Integer(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=False), server_default=sa.func.now()),
-        sa.Column('updated_at', sa.DateTime(timezone=False), server_default=sa.func.now()),
-        sa.Column('votes_count', sa.Integer(), server_default='0'),
     )
 
     # === TABLE: thread_votes ===
     op.create_table(
         'thread_votes',
         sa.Column('id', sa.Integer(), primary_key=True, index=True),
-        sa.Column('thread_id', sa.Integer(), sa.ForeignKey('threads.id', ondelete='CASCADE'), nullable=False),
         sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('vote_type', sa.String(length=20), nullable=False),  # upvote, downvote
-        sa.Column('created_at', sa.DateTime(timezone=False), server_default=sa.func.now()),
-        sa.UniqueConstraint('thread_id', 'user_id', name='unique_thread_vote'),
+        sa.Column('thread_id', sa.Integer(), sa.ForeignKey('threads.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('value', sa.Integer()),  # +1 or -1
+        sa.UniqueConstraint('user_id', 'thread_id', name='unique_user_thread_vote'),
     )
 
     # === TABLE: comment_votes ===
     op.create_table(
         'comment_votes',
         sa.Column('id', sa.Integer(), primary_key=True, index=True),
-        sa.Column('comment_id', sa.Integer(), sa.ForeignKey('comments.id', ondelete='CASCADE'), nullable=False),
         sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('vote_type', sa.String(length=20), nullable=False),  # upvote, downvote
-        sa.Column('created_at', sa.DateTime(timezone=False), server_default=sa.func.now()),
-        sa.UniqueConstraint('comment_id', 'user_id', name='unique_comment_vote'),
+        sa.Column('comment_id', sa.Integer(), sa.ForeignKey('comments.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('value', sa.Integer()),  # +1 or -1
+        sa.UniqueConstraint('user_id', 'comment_id', name='unique_user_comment_vote'),
     )
 
 

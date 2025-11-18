@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from app.db.session import get_db
+from app.api.deps import get_db
 from app.models.user import User
 from app.models.profile import Profile
 from app.models.user import UserStats

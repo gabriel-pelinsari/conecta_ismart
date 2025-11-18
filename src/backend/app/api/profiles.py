@@ -5,8 +5,7 @@ from typing import Union, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from app.db.session import get_db
-from app.api.deps import get_current_user
+from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.models.profile import Profile
 from app.models.social import Interest, UserInterest
@@ -24,7 +23,7 @@ from app.services.university_groups import UniversityGroupService
 # === LOGGING ===
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/profiles", tags=["profiles"])
+router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
 MEDIA_DIR = os.path.join(os.getcwd(), "media", "avatars")
 os.makedirs(MEDIA_DIR, exist_ok=True)
